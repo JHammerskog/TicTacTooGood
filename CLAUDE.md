@@ -46,6 +46,9 @@ Phased build: see `docs/superpowers/specs/` for phase design docs.
 - Flask is API-only here — no server-rendered templates, so there's no
   Jinja2/`.html.j2` section like other projects might have.
 - Formatting: Prettier, default config (2-space indent).
+- Linting: oxlint (`frontend/.oxlintrc.json`, `npm run lint`) — correctness
+  rules only (e.g. `react/rules-of-hooks`), no formatting rules, so it
+  never conflicts with Prettier.
 
 ### Frontend styling
 
