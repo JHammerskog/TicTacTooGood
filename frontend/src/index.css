@@ -1,3 +1,55 @@
 body {
   margin: 0;
 }
+
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 0.5rem;
+  width: min(90vmin, 400px);
+  aspect-ratio: 1;
+}
+
+.board-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bs-body-bg);
+  border: 2px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  font-size: clamp(2rem, 12vmin, 4rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--bs-body-color);
+}
+
+.board-cell:not([aria-disabled='true']):hover {
+  background: var(--bs-tertiary-bg);
+  border-color: #adb5bd;
+}
+
+.board-cell[aria-disabled='true'] {
+  opacity: 1;
+  cursor: default;
+}
+
+/* Marks the most recent move. Bootstrap's subtle-warning pair is theme-aware,
+   so the tint stays legible in both light and dark. */
+.board-cell.board-cell-last {
+  background: var(--bs-warning-bg-subtle);
+  border-color: var(--bs-warning-border-subtle);
+}
+
+.win-line {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.win-line line {
+  stroke: var(--bs-danger);
+  stroke-width: 0.08;
+  stroke-linecap: round;
+}
