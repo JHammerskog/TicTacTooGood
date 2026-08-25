@@ -1,3 +1,42 @@
+"""Perfect play for tic-tac-toe, by minimax search.
+
+Minimax answers "what happens if both sides play as well as possible?" There is
+no guessing and no heuristic: the game is small enough to look at every position
+that can follow from this one, all the way to the end, and read the answer off
+the bottom.
+
+The recursion is one sentence: **the value of a position is the best value among
+the positions you can move to, seen from the other player's side and flipped.**
+
+That flip is the whole trick, and it is what `evaluate` is doing here::
+
+    opponent_score, _ = evaluate(play(board, index))
+    candidate = -opponent_score
+
+`evaluate` always answers from the point of view of whoever is to move on the
+board it was handed. So once you play your move, the recursive call speaks for
+your *opponent* — and their win is your loss. Negating converts their verdict
+back into yours. Because every level flips, the code can simply take the best
+candidate at every level instead of alternating "maximise mine" and "minimise
+theirs"; the two are the same search written differently.
+
+Recursion has to stop somewhere, and here it stops on the two ways a game of
+tic-tac-toe can end:
+
+- somebody has completed a line, which means the player now to move has already
+  lost, so the position scores -1;
+- no cells are left and nobody won, so it scores 0.
+
+Nothing else needs a rule. Every other position gets its value from its
+children, and since each move fills a cell, every branch reaches one of those
+two endings within nine plies.
+
+Alongside the score the search carries a *distance* — how many plies remain
+until the game ends. Without it every win looks alike, and the engine would
+happily take a win in five when a win in one was available, because both score
+1. `_rank` uses it to prefer winning sooner and losing later.
+"""
+
 from functools import cache
 from typing import NamedTuple
 

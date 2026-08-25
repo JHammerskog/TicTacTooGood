@@ -1,3 +1,10 @@
+/* Reserve the scrollbar gutter at all times. Without it, turning teaching on
+   makes the page taller, the scrollbar appears, and the whole board jumps 7px
+   left — which reads as the layout lurching even though it is centred. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
 }
@@ -52,4 +59,32 @@ body {
   stroke: var(--bs-danger);
   stroke-width: 0.08;
   stroke-linecap: round;
+}
+
+/* Annotation tints. Bootstrap's subtle pairs are theme-aware, like the
+   last-move yellow above. Empty cells only, so these never fight it. */
+.board-cell.board-cell-win {
+  background: var(--bs-success-bg-subtle);
+  border-color: var(--bs-success-border-subtle);
+}
+
+.board-cell.board-cell-draw {
+  background: var(--bs-secondary-bg-subtle);
+  border-color: var(--bs-secondary-border-subtle);
+}
+
+.board-cell.board-cell-loss {
+  background: var(--bs-danger-bg-subtle);
+  border-color: var(--bs-danger-border-subtle);
+}
+
+/* Links a panel row to its square, in both directions. */
+.board-cell.board-cell-linked {
+  outline: 3px solid var(--bs-primary);
+  outline-offset: -3px;
+}
+
+.board-star {
+  font-size: 0.4em;
+  opacity: 0.65;
 }

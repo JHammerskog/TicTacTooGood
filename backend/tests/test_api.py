@@ -84,8 +84,46 @@ def test_a_missing_body_is_rejected(client: FlaskClient) -> None:
     assert "board" in response.get_json()["error"]
 
 
-def test_hello_route_still_works(client: FlaskClient) -> None:
-    """Phase 2a must not disturb the existing endpoint."""
-    response = client.get("/api/hello")
+def test_no_opponent_means_no_suggestion(client: FlaskClient) -> None:
+    response = client.post("/api/analyse", json={"board": cells(".........")})
+    assert response.get_json()["suggested"] is None
+
+
+def test_an_opponent_gets_a_legal_suggestion(client: FlaskClient) -> None:
+    response = client.post(
+        "/api/analyse",
+        json={"board": cells("XX.OO...."), "opponent": "fallible"},
+    )
     assert response.status_code == 200
-    assert response.get_json() == {"message": "Hello from Flask"}
+    body = response.get_json()
+    assert body["suggested"] in {move["index"] for move in body["moves"]}
+
+
+def test_a_fallible_opponent_takes_the_win_in_front_of_it(client: FlaskClient) -> None:
+    """X to play with 2 completing the top row. Fallible's first rule is to
+    win, so this is not left to chance."""
+    response = client.post(
+        "/api/analyse",
+        json={"board": cells("XX.OO...."), "opponent": "fallible"},
+    )
+    assert response.get_json()["suggested"] == 2
+
+
+def test_a_finished_game_suggests_nothing(client: FlaskClient) -> None:
+    response = client.post(
+        "/api/analyse",
+        json={"board": cells("XXXOO...."), "opponent": "perfect"},
+    )
+    body = response.get_json()
+    assert body["status"] == "won"
+    assert body["moves"] == []
+    assert body["suggested"] is None
+
+
+def test_an_unknown_opponent_is_rejected(client: FlaskClient) -> None:
+    response = client.post(
+        "/api/analyse",
+        json={"board": cells("........."), "opponent": "telepathic"},
+    )
+    assert response.status_code == 400
+    assert "opponent" in response.get_json()["error"]

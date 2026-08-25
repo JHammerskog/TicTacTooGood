@@ -1,25 +1,20 @@
+import random
+
 from flask import Flask, Response, jsonify, request
-from flask_cors import CORS
 from pydantic import ValidationError
 
 from game import player_to_move
 from game import status as board_status
+from opponent import choose
 from rules import name_move
 from schemas import AnalyseRequest, AnalyseResponse, MoveAnalysis
 from solver import analyse_moves
 
 app = Flask(__name__)
-CORS(app)
 
-
-@app.route("/api/hello")
-def hello() -> tuple[Response, int]:
-    """Return a hello-world payload proving the backend is reachable.
-
-    Returns:
-        A JSON-serializable dict with a "message" key, and HTTP 200.
-    """
-    return jsonify(message="Hello from Flask"), 200
+# One generator for the process, seeded from the OS. The opponent's randomness
+# is a gameplay detail, not a security boundary.
+_RNG = random.Random()
 
 
 def _first_problem(error: ValidationError) -> str:
@@ -72,12 +67,19 @@ def analyse() -> tuple[Response | dict[str, object], int]:
         else []
     )
 
+    suggested = (
+        choose(board, payload.opponent, _RNG)
+        if payload.opponent is not None and status == "in_progress"
+        else None
+    )
+
     response = AnalyseResponse(
         status=status,
         player=player_to_move(board) if status == "in_progress" else None,
         winner=winning_mark,
         winning_line=list(winning_line) if winning_line else None,
         moves=moves,
+        suggested=suggested,
     )
     return response.model_dump(), 200
 

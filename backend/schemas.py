@@ -19,9 +19,10 @@ RuleName = Literal[
 
 
 class AnalyseRequest(BaseModel):
-    """A board submitted for analysis."""
+    """A board submitted for analysis, optionally asking what a given opponent would play."""
 
     board: Annotated[list[CellValue], Field(min_length=9, max_length=9)]
+    opponent: Literal["perfect", "fallible"] | None = None
 
     @field_validator("board")
     @classmethod
@@ -61,10 +62,11 @@ class MoveAnalysis(BaseModel):
 
 
 class AnalyseResponse(BaseModel):
-    """The full analysis of a submitted board."""
+    """The full analysis of a submitted board, and the computer's move if one was asked for."""
 
     status: Literal["in_progress", "won", "drawn"]
     player: Literal["X", "O"] | None
     winner: Literal["X", "O"] | None
     winning_line: list[int] | None
     moves: list[MoveAnalysis]
+    suggested: int | None = None
