@@ -88,3 +88,30 @@ body {
   font-size: 0.4em;
   opacity: 0.65;
 }
+
+/* Bootstrap keeps its outline-button colours identical in both themes, and they
+   are chosen for a white ground: on the dark background #0d6efd measures 3.42:1
+   and #6c757d 3.28:1, both under the 4.5:1 needed for text. Lighten them to the
+   same hues Bootstrap itself uses for dark-mode text, via the button variable
+   API so hover and active states follow. */
+[data-bs-theme='dark'] .btn-outline-primary {
+  --bs-btn-color: #6ea8fe;
+  --bs-btn-border-color: #6ea8fe;
+  --bs-btn-hover-color: #000;
+  --bs-btn-hover-bg: #6ea8fe;
+  --bs-btn-hover-border-color: #6ea8fe;
+  --bs-btn-active-color: #000;
+  --bs-btn-active-bg: #6ea8fe;
+  --bs-btn-active-border-color: #6ea8fe;
+}
+
+[data-bs-theme='dark'] .btn-outline-secondary {
+  --bs-btn-color: #adb5bd;
+  --bs-btn-border-color: #6c757d;
+  --bs-btn-hover-color: #000;
+  --bs-btn-hover-bg: #adb5bd;
+  --bs-btn-hover-border-color: #adb5bd;
+  --bs-btn-active-color: #000;
+  --bs-btn-active-bg: #adb5bd;
+  --bs-btn-active-border-color: #adb5bd;
+}

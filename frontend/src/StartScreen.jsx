@@ -1,4 +1,5 @@
-import { TeachingDial } from './TeachingPanel.jsx';
+import { Fragment } from 'react';
+import TeachingDial from './TeachingDial.jsx';
 
 const OPPONENTS = [
   { value: 'hotseat', label: 'Hotseat', hint: 'Two players, one screen.' },
@@ -28,26 +29,30 @@ function StartScreen({ settings, onChange, onStart }) {
           </legend>
           <div className="d-grid gap-2">
             {OPPONENTS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={
-                  option.value === settings.opponent
-                    ? 'btn btn-primary text-start'
-                    : 'btn btn-outline-primary text-start'
-                }
-                aria-pressed={option.value === settings.opponent}
-                onClick={() =>
-                  onChange((previous) => ({
-                    ...previous,
-                    opponent: option.value,
-                  }))
-                }
-              >
-                <strong>{option.label}</strong>
-                <br />
-                <small>{option.hint}</small>
-              </button>
+              <Fragment key={option.value}>
+                <input
+                  type="radio"
+                  className="btn-check"
+                  name="opponent"
+                  id={`opponent-${option.value}`}
+                  autoComplete="off"
+                  checked={option.value === settings.opponent}
+                  onChange={() =>
+                    onChange((previous) => ({
+                      ...previous,
+                      opponent: option.value,
+                    }))
+                  }
+                />
+                <label
+                  className="btn btn-outline-primary text-start"
+                  htmlFor={`opponent-${option.value}`}
+                >
+                  <strong>{option.label}</strong>
+                  <br />
+                  <small>{option.hint}</small>
+                </label>
+              </Fragment>
             ))}
           </div>
         </fieldset>
@@ -58,6 +63,29 @@ function StartScreen({ settings, onChange, onStart }) {
           }
           describe
         />
+        <div className="mt-3">
+          <div className="form-check form-switch d-inline-flex align-items-center gap-2">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              role="switch"
+              id="critique"
+              checked={settings.critique}
+              onChange={() =>
+                onChange((previous) => ({
+                  ...previous,
+                  critique: !previous.critique,
+                }))
+              }
+            />
+            <label className="form-check-label" htmlFor="critique">
+              Tell me when I slip
+            </label>
+          </div>
+          <p className="text-body-secondary small mb-0">
+            Warns after a move that throws the game, and offers to take it back.
+          </p>
+        </div>
       </div>
       <div>
         <button

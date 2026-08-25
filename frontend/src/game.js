@@ -104,7 +104,10 @@ export const RULE_TEXT = {
  * Filters the moves the API returned down to what the current teaching
  * level should show. In "Best move" mode only the optimal moves are
  * shown, so the rest of the position stays unspoiled; "Every move" shows
- * everything.
+ * everything. "Off" shows nothing: an analysis is fetched whenever
+ * teaching, critique, or the computer needs one, so a player who turned
+ * teaching off can still have a live analysis in hand — and must not be
+ * shown it.
  *
  * @param {Array<object> | null | undefined} moves - Moves from the API's
  *   `analyse` response, or a nullish value while analysis is unavailable.
@@ -112,6 +115,9 @@ export const RULE_TEXT = {
  * @returns {Array<object>} The moves to display, possibly empty.
  */
 export function visibleMoves(moves, teaching) {
+  if (teaching === 'off') {
+    return [];
+  }
   return (moves ?? []).filter((move) => teaching === 'full' || move.best);
 }
 
@@ -194,4 +200,108 @@ export function describeResult(winnerMark, vsComputer, humanMark) {
     return `${winnerMark} won!`;
   }
   return winnerMark === humanMark ? 'Human won!' : 'Computer won.';
+}
+
+/**
+ * Plays a move, returning the new history and cursor.
+ *
+ * Playing from a position you have navigated back to discards everything after
+ * it: the game continues from there rather than branching. That is one
+ * expression rather than three behaviours — it is also what disables Forward
+ * and empties the visible move list.
+ *
+ * @param {Array<Array<'X' | 'O' | null>>} history - Every position so far.
+ * @param {number} cursor - Which position is on screen.
+ * @param {number} index - The cell to play.
+ * @param {'X' | 'O'} mark - Whose move it is.
+ * @returns {{ history: Array<Array<'X' | 'O' | null>>, cursor: number }} The
+ *   new state, or the arguments unchanged if the cell is already occupied.
+ */
+export function playInHistory(history, cursor, index, mark) {
+  const board = history[cursor];
+  if (board[index] !== null) {
+    return { history, cursor };
+  }
+  const next = board.slice();
+  next[index] = mark;
+  return {
+    history: [...history.slice(0, cursor + 1), next],
+    cursor: cursor + 1,
+  };
+}
+
+/**
+ * Finds the cell that changed between two consecutive positions.
+ *
+ * This replaces the `lastMove` state Phase 1 had to store: with a history the
+ * answer is derivable, so the highlight follows the cursor while navigating
+ * instead of being stuck on the most recent move played.
+ *
+ * @param {Array<'X' | 'O' | null> | undefined} previous - The position before.
+ * @param {Array<'X' | 'O' | null> | undefined} current - The position now.
+ * @returns {number | null} The changed cell, or null at the start of a game.
+ */
+export function lastMoveIndex(previous, current) {
+  if (!previous || !current) {
+    return null;
+  }
+  for (let index = 0; index < current.length; index += 1) {
+    if (previous[index] !== current[index]) {
+      return index;
+    }
+  }
+  return null;
+}
+
+/**
+ * Names each position in a history, for the move list.
+ *
+ * @param {Array<Array<'X' | 'O' | null>>} history - Every position so far.
+ * @returns {string[]} One label per position: "Game start", then
+ *   "1. X centre" and so on, numbered by ply.
+ */
+export function moveLabels(history) {
+  return history.map((board, ply) => {
+    if (ply === 0) {
+      return 'Game start';
+    }
+    const index = lastMoveIndex(history[ply - 1], board);
+    return `${ply}. ${board[index]} ${CELL_NAMES[index]}`;
+  });
+}
+
+/** Outcomes ordered worst to best, for comparing what you got against what
+ *  was available. */
+const OUTCOME_RANK = { loss: 0, draw: 1, win: 2 };
+
+/**
+ * Decides whether a move threw something away.
+ *
+ * Only a change of outcome counts: draw to loss, or win to draw. Winning more
+ * slowly is not an error, and neither is a non-optimal move that still draws —
+ * flagging those would teach the player to ignore the warnings.
+ *
+ * Every optimal move shares one outcome, so the first is representative.
+ *
+ * @param {{ moves: Array<object> } | null} analysis - The analysis of the
+ *   position the move was played in, or null if none had arrived.
+ * @param {number} index - The cell that was played.
+ * @returns {{ played: object, bestOutcome: string, alternatives: Array<object> }
+ *   | null} The verdict, or null when the move cost nothing or cannot be judged.
+ */
+export function judgeMove(analysis, index) {
+  const moves = analysis?.moves;
+  if (!Array.isArray(moves) || moves.length === 0) {
+    return null;
+  }
+  const played = moves.find((move) => move.index === index);
+  const alternatives = moves.filter((move) => move.best);
+  if (!played || alternatives.length === 0) {
+    return null;
+  }
+  const bestOutcome = alternatives[0].outcome;
+  if (OUTCOME_RANK[played.outcome] >= OUTCOME_RANK[bestOutcome]) {
+    return null;
+  }
+  return { played, bestOutcome, alternatives };
 }

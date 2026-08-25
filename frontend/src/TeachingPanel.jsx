@@ -8,65 +8,6 @@ import {
   visibleMoves,
 } from './game.js';
 
-const DIAL_OPTIONS = [
-  {
-    value: 'off',
-    label: 'Off',
-    hint: 'Just play. The board tells you nothing.',
-  },
-  {
-    value: 'hints',
-    label: 'Best move',
-    hint: 'Stars the strongest move and names the pattern behind it.',
-  },
-  {
-    value: 'full',
-    label: 'Every move',
-    hint: 'Rates every square: what it leads to and what it is called.',
-  },
-];
-
-/**
- * The three-position teaching control. Three positions rather than two
- * checkboxes because "every move" strictly contains "best move" — two
- * checkboxes would imply four states where there are three.
- *
- * `describe` adds a line explaining the chosen setting. The start screen wants
- * it, because there is no board on screen to make the setting self-evident;
- * in-game the board is right there, so the dial stays compact.
- */
-export function TeachingDial({ value, onChange, describe = false }) {
-  const chosen = DIAL_OPTIONS.find((option) => option.value === value);
-
-  return (
-    <fieldset className="mb-3">
-      <legend className="fs-6 text-body-secondary">Teaching mode</legend>
-      <div className="btn-group" role="group">
-        {DIAL_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={
-              option.value === value
-                ? 'btn btn-primary'
-                : 'btn btn-outline-primary'
-            }
-            aria-pressed={option.value === value}
-            onClick={() => onChange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-      {describe && (
-        <p className="text-body-secondary small mt-2 mb-0" aria-live="polite">
-          {chosen?.hint}
-        </p>
-      )}
-    </fieldset>
-  );
-}
-
 function MoveRow({ move, hovered, onHover }) {
   // Stacked rather than side by side: the panel column is deliberately narrow
   // so the board stays centred, and a two-column row wraps "middle right" and
@@ -98,6 +39,8 @@ function TeachingPanel({
   onHover,
   vsComputer,
   humanMark,
+  records,
+  onGoTo,
 }) {
   // Game.jsx already renders the authoritative "Analysis unavailable" alert
   // above this panel, so on error the panel stays silent rather than also
@@ -119,11 +62,57 @@ function TeachingPanel({
   }
 
   if (analysis.status !== 'in_progress') {
+    const slips = records.filter((record) => record.mistake);
+    const unjudged = records.filter((record) => !record.judged).length;
     return (
       <div className="text-start">
-        <h2 className="fs-5 mb-0">
+        <h2 className="fs-5">
           {describeResult(analysis.winner, vsComputer, humanMark)}
         </h2>
+        {slips.length === 0 ? (
+          unjudged === 0 ? (
+            <p className="text-body-secondary mb-0">
+              No mistakes. You played it out correctly.
+            </p>
+          ) : (
+            <p className="text-body-secondary mb-0">
+              Nothing flagged in the {records.length - unjudged} move
+              {records.length - unjudged === 1 ? '' : 's'} I could check.
+            </p>
+          )
+        ) : (
+          <>
+            <h3 className="fs-6 mt-3">Where it went wrong</h3>
+            <div className="list-group">
+              {slips.map((record) => (
+                <button
+                  key={record.ply}
+                  type="button"
+                  className="list-group-item list-group-item-action"
+                  onClick={() => onGoTo(record.ply)}
+                >
+                  <div>
+                    Move {record.ply}: {record.mark} {CELL_NAMES[record.index]}
+                  </div>
+                  <div className="text-body-secondary small">
+                    The position had a {record.mistake.bestOutcome} —{' '}
+                    {CELL_NAMES[record.index]}{' '}
+                    {describeOutcome(
+                      record.mistake.played.outcome,
+                      record.mistake.played.distance,
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {unjudged > 0 && (
+          <p className="text-body-secondary small mt-2 mb-0">
+            {unjudged} move{unjudged === 1 ? '' : 's'} played before the
+            analysis arrived and could not be checked.
+          </p>
+        )}
       </div>
     );
   }

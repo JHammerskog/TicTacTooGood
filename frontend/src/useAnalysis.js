@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+/** How long to wait before treating a silent backend as a failure. */
+const REQUEST_TIMEOUT_MS = 8000;
+
 /**
  * Fetches the engine's analysis of a board.
  *
@@ -31,6 +34,14 @@ export function useAnalysis(board, opponent, enabled) {
     // Aborting on cleanup is what stops a slow response for an earlier board
     // arriving after a later one and overwriting it.
     const controller = new AbortController();
+    // A hung backend is not a failed one: without this the promise never
+    // settles, so `loading` stays true forever and the Retry button — which
+    // renders only on an error — never appears.
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
     setState({ data: null, loading: true, error: null });
 
     fetch('/api/analyse', {
@@ -48,15 +59,27 @@ export function useAnalysis(board, opponent, enabled) {
         }
         return response.json();
       })
-      .then((data) => setState({ data, loading: false, error: null }))
+      .then((data) =>
+        setState({ data: { ...data, board }, loading: false, error: null }),
+      )
       .catch((error) => {
         if (error.name === 'AbortError') {
+          if (timedOut) {
+            setState({
+              data: null,
+              loading: false,
+              error: 'The server did not respond.',
+            });
+          }
           return;
         }
         setState({ data: null, loading: false, error: error.message });
       });
 
-    return () => controller.abort();
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [board, opponent, enabled, attempt]);
 
   const retry = useCallback(() => setAttempt((count) => count + 1), []);

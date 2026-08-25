@@ -11,7 +11,11 @@ SAMPLES = 3
 
 
 def live_positions() -> list[Board]:
-    """Every reachable position where a move can still be made."""
+    """Collect the positions where the game is still going.
+
+    Returns:
+        Every reachable board that has no winner and at least one legal move.
+    """
     return [
         position
         for position in reachable_positions()
