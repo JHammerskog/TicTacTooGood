@@ -1,21 +1,35 @@
 import { Fragment } from 'react';
+import CritiqueSwitch from './CritiqueSwitch.jsx';
 import TeachingDial from './TeachingDial.jsx';
 
+// Each option sets both halves of the opponent: who the computer plays as, and
+// how well. The computer takes O so the player opens, which is the friendlier
+// default; it can be handed either mark, or switched off, from the game screen.
 const OPPONENTS = [
-  { value: 'hotseat', label: 'Hotseat', hint: 'Two players, one screen.' },
+  {
+    value: 'hotseat',
+    label: 'Hotseat',
+    hint: 'Two players, one screen.',
+    settings: { computerMark: null },
+  },
   {
     value: 'fallible',
     label: 'Computer — fallible',
     hint: 'Takes a win, never misses a block — after that it guesses.',
+    settings: { computerMark: 'O', difficulty: 'fallible' },
   },
   {
     value: 'perfect',
     label: 'Computer — perfect',
     hint: 'Cannot be beaten. A draw is the win.',
+    settings: { computerMark: 'O', difficulty: 'perfect' },
   },
 ];
 
 function StartScreen({ settings, onChange, onStart }) {
+  const chosen =
+    settings.computerMark === null ? 'hotseat' : settings.difficulty;
+
   return (
     <div className="text-center">
       <h1 className="mb-2">TicTacTooGood</h1>
@@ -36,11 +50,11 @@ function StartScreen({ settings, onChange, onStart }) {
                   name="opponent"
                   id={`opponent-${option.value}`}
                   autoComplete="off"
-                  checked={option.value === settings.opponent}
+                  checked={option.value === chosen}
                   onChange={() =>
                     onChange((previous) => ({
                       ...previous,
-                      opponent: option.value,
+                      ...option.settings,
                     }))
                   }
                 />
@@ -64,27 +78,13 @@ function StartScreen({ settings, onChange, onStart }) {
           describe
         />
         <div className="mt-3">
-          <div className="form-check form-switch d-inline-flex align-items-center gap-2">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              role="switch"
-              id="critique"
-              checked={settings.critique}
-              onChange={() =>
-                onChange((previous) => ({
-                  ...previous,
-                  critique: !previous.critique,
-                }))
-              }
-            />
-            <label className="form-check-label" htmlFor="critique">
-              Tell me when I slip
-            </label>
-          </div>
-          <p className="text-body-secondary small mb-0">
-            Warns after a move that throws the game, and offers to take it back.
-          </p>
+          <CritiqueSwitch
+            value={settings.critique}
+            onChange={(critique) =>
+              onChange((previous) => ({ ...previous, critique }))
+            }
+            describe
+          />
         </div>
       </div>
       <div>

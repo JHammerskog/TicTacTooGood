@@ -137,3 +137,23 @@ def test_the_opening_move_varies() -> None:
     openings = {choose(board("........."), "fallible", rng) for _ in range(50)}
     assert len(openings) > 1
     assert openings <= set(range(9))
+
+
+def test_fallible_takes_a_free_centre_about_half_the_time() -> None:
+    """A person offered an open centre takes it far more often than one time in
+    nine. Asserted as a band rather than a point so the test survives a change
+    of RNG, and paired with the negative case so a policy that simply always
+    took the centre would fail."""
+    rng = random.Random(0)
+    replies = [choose(board("X........"), "fallible", rng) for _ in range(400)]
+    centres = replies.count(4)
+    assert 140 < centres < 260, f"took the centre {centres}/400 times"
+    assert len(set(replies) - {4}) > 1, "the other half is not spread around"
+
+
+def test_fallible_still_blocks_rather_than_grabbing_the_centre() -> None:
+    """The centre bias sits below the forced steps, so a loss on the board
+    outranks it. X threatens the top row; the centre is free and tempting."""
+    rng = random.Random(0)
+    for _ in range(50):
+        assert choose(board("XX...O..."), "fallible", rng) == 2

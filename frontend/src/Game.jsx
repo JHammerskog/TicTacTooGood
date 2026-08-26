@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import Board from './Board.jsx';
+import ComputerControl from './ComputerControl.jsx';
+import CritiqueSwitch from './CritiqueSwitch.jsx';
 import MoveList from './MoveList.jsx';
 import TeachingPanel from './TeachingPanel.jsx';
 import TeachingDial from './TeachingDial.jsx';
@@ -14,19 +16,14 @@ import {
   lastMoveIndex,
   moveLabels,
   nextPlayer,
-  playedCount,
   playInHistory,
   RULE_TEXT,
 } from './game.js';
 
 const EMPTY_BOARD = Array(9).fill(null);
 
-/** What the mode line calls each opponent. */
-const OPPONENT_LABELS = {
-  hotseat: 'Hotseat',
-  fallible: 'vs Computer — fallible',
-  perfect: 'vs Computer — perfect',
-};
+/** The other mark. Only meaningful when the computer is playing one of them. */
+const other = (mark) => (mark === 'X' ? 'O' : 'X');
 
 /** How long the computer appears to think, so its move reads as a move. */
 const THINKING_MS = 400;
@@ -48,35 +45,39 @@ function Game({ settings, onChange, onQuit, muted }) {
   // Where navigation is heading. The cursor walks toward it a ply at a time so
   // a jump replays the moves between instead of snapping.
   const [target, setTarget] = useState(null);
-  // Locked when the game starts. See `toggleWhoStarts` for why this is state
-  // rather than a value derived from settings.computerFirst.
-  const [humanMark, setHumanMark] = useState(
-    settings.computerFirst ? 'O' : 'X',
-  );
-
   const squares = history[cursor];
   const lastMove = lastMoveIndex(history[cursor - 1], squares);
   const labels = moveLabels(history);
   const atTip = cursor === history.length - 1;
   const replaying = target !== null && target !== cursor;
   // "Settled and live": the position on screen is the real one, and nothing is
-  // mid-flight. The computer may only move in this state. A critique banner
-  // holds it too, so the computer does not answer while the banner is open.
-  const live = atTip && !replaying && critique === null;
+  // mid-flight. The computer may only move in this state. A critique does NOT
+  // hold it — a warning is something to read, not a dialog to dismiss, so play
+  // continues underneath it and the banner carries the ply it is about so its
+  // take-back stays correct however many moves land on top.
+  const live = atTip && !replaying;
 
   const winner = calculateWinner(squares);
   const over = isOver(squares);
   const player = nextPlayer(squares);
-  const played = playedCount(squares);
 
-  const vsComputer = settings.opponent !== 'hotseat';
-  const isComputerTurn = vsComputer && !over && player !== humanMark;
+  // Both derived from one setting rather than tracked separately. The mark the
+  // computer holds decides everything: whether there is a computer at all,
+  // which side the player is, and — by comparing it with the side to move —
+  // whether the computer answers now or waits. That is what makes switching it
+  // on mid-game well defined.
+  const vsComputer = settings.computerMark !== null;
+  const humanMark = other(settings.computerMark);
+  const isComputerTurn =
+    vsComputer && !over && player === settings.computerMark;
   const teachingOn = settings.teaching !== 'off';
 
   const { data, loading, error, retry } = useAnalysis(
     squares,
-    isComputerTurn ? settings.opponent : null,
-    teachingOn || settings.critique || isComputerTurn,
+    isComputerTurn ? settings.difficulty : null,
+    // `over` is in here because the end-of-game review needs the analysis even
+    // when every teaching setting is off: it reads the result from it.
+    teachingOn || settings.critique || isComputerTurn || over,
   );
 
   // Guard against the one frame where `data` still describes the previous
@@ -119,8 +120,17 @@ function Game({ settings, onChange, onQuit, muted }) {
   // `replaying` is checked too: the board reads aria-disabled during a replay
   // animation, which does not stop a click either, and a click accepted there
   // would branch the history mid-walk and destroy the moves being reviewed.
+  //
+  // The computer's turn is only protected AT THE TIP, where taking its move
+  // would be stealing it. Away from the tip you are branching a new line, and
+  // being locked out of half the positions in the game — every other ply — for
+  // no reason you can see is worse than letting you play both sides of a line
+  // you are exploring. The computer picks the line up again from the new tip.
   function handleCellClick(index) {
-    if (isComputerTurn || over || replaying || squares[index] !== null) {
+    if (over || replaying || squares[index] !== null) {
+      return;
+    }
+    if (atTip && isComputerTurn) {
       return;
     }
     const mistake = judgeMove(analysis, index);
@@ -134,9 +144,12 @@ function Game({ settings, onChange, onQuit, muted }) {
         mistake,
       },
     ]);
-    if (settings.critique) {
-      setCritique(mistake);
-    }
+    // Set on every move, not only on a bad one: a clean move clears whatever
+    // warning the last one raised, which is what makes the banner go away by
+    // playing on rather than by pressing a button.
+    setCritique(
+      settings.critique && mistake ? { ...mistake, ply: cursor + 1 } : null,
+    );
     playAt(index);
   }
 
@@ -180,19 +193,8 @@ function Game({ settings, onChange, onQuit, muted }) {
     setCursor(0);
     setTarget(null);
     setHoveredIndex(null);
-    setHumanMark(settings.computerFirst ? 'O' : 'X');
     setCritique(null);
     setRecords([]);
-  }
-
-  function toggleWhoStarts() {
-    const computerFirst = !settings.computerFirst;
-    onChange((previous) => ({ ...previous, computerFirst }));
-    // Only while the board is empty. Flipping this mid-game would otherwise
-    // make it the computer's turn immediately and let it steal a move.
-    if (played === 0) {
-      setHumanMark(computerFirst ? 'O' : 'X');
-    }
   }
 
   let status;
@@ -209,8 +211,6 @@ function Game({ settings, onChange, onQuit, muted }) {
       : `${winner.player} wins!`;
   } else if (isDraw(squares)) {
     status = vsComputer ? 'Draw — the best there is.' : 'Draw';
-  } else if (critique) {
-    status = 'Your move is played — take it back, or play on.';
   } else if (vsComputer) {
     status = isComputerTurn
       ? error
@@ -225,62 +225,77 @@ function Game({ settings, onChange, onQuit, muted }) {
     <div className="text-center">
       <h1 className="mb-1">TicTacTooGood</h1>
       <p className="text-body-secondary small mb-3">
-        {OPPONENT_LABELS[settings.opponent]}
+        {vsComputer
+          ? `vs Computer — ${settings.difficulty} · you are ${humanMark}`
+          : 'Hotseat'}
       </p>
       <p className="fs-4 mb-4" aria-live="polite">
         {status}
       </p>
 
-      {error && (
-        <div className="alert alert-warning" role="alert">
-          <p className="mb-2">Analysis unavailable: {error}</p>
-          <button
-            type="button"
-            className="btn btn-sm btn-warning"
-            onClick={retry}
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      <div className="d-flex justify-content-center">
+      <div className="d-flex flex-wrap justify-content-center align-items-start gap-4 mb-3">
         <TeachingDial
           value={settings.teaching}
           onChange={(teaching) =>
             onChange((previous) => ({ ...previous, teaching }))
           }
         />
+        <ComputerControl
+          value={settings.computerMark}
+          onChange={(computerMark) =>
+            onChange((previous) => ({ ...previous, computerMark }))
+          }
+        />
+        <CritiqueSwitch
+          value={settings.critique}
+          onChange={(critique) => {
+            if (!critique) {
+              setCritique(null);
+            }
+            onChange((previous) => ({ ...previous, critique }));
+          }}
+        />
       </div>
 
-      {critique && (
-        <div className="alert alert-warning text-start" role="alert">
-          <p className="mb-2">
-            That{' '}
-            {critique.played.outcome === 'loss'
-              ? 'loses the game'
-              : 'gives up the win'}
-            .{' '}
-            {critique.alternatives.length === 1
-              ? `${CELL_NAMES[critique.alternatives[0].index]} was the move — ${RULE_TEXT[critique.alternatives[0].rule] ?? critique.alternatives[0].rule}.`
-              : `${critique.alternatives.length} other squares held the ${critique.bestOutcome}.`}
-          </p>
-          <button
-            type="button"
-            className="btn btn-sm btn-warning me-2"
-            onClick={() => goTo(cursor - 1)}
-          >
-            Take it back
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => setCritique(null)}
-          >
-            Play on
-          </button>
-        </div>
-      )}
+      {/* One slot for every transient message, holding its height whether or
+          not anything is in it. Messages used to render inline in two separate
+          places, so each one appearing shoved the board down the page. Error
+          wins over critique because a critique is derived from an analysis that
+          arrived: the two cannot describe the same move. */}
+      <div className="message-slot mx-auto">
+        {error ? (
+          <div className="alert alert-warning" role="alert">
+            <p className="mb-2">Analysis unavailable: {error}</p>
+            <button
+              type="button"
+              className="btn btn-sm btn-warning"
+              onClick={retry}
+            >
+              Retry
+            </button>
+          </div>
+        ) : critique ? (
+          <div className="alert alert-warning text-start" role="alert">
+            <p className="mb-2">
+              That{' '}
+              {critique.played.outcome === 'loss'
+                ? 'loses the game'
+                : 'gives up the win'}
+              .{' '}
+              {critique.alternatives.length === 1
+                ? `${CELL_NAMES[critique.alternatives[0].index]} was the move — ${RULE_TEXT[critique.alternatives[0].rule] ?? critique.alternatives[0].rule}.`
+                : `${critique.alternatives.length} other squares held the ${critique.bestOutcome}.`}
+            </p>
+            <button
+              type="button"
+              className="btn btn-sm btn-warning"
+              onClick={() => goTo(critique.ply - 1)}
+            >
+              Take it back
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       {/* Three fixed columns, always the same shape. The side columns are equal
           width, so the board sits dead centre whether or not the panel has
@@ -305,7 +320,7 @@ function Game({ settings, onChange, onQuit, muted }) {
             squares={squares}
             winningLine={winner?.line}
             lastMove={lastMove}
-            disabled={over || isComputerTurn || replaying}
+            disabled={over || replaying || (atTip && isComputerTurn)}
             onPlay={handleCellClick}
             moves={isComputerTurn ? null : analysis?.moves}
             teaching={settings.teaching}
@@ -364,29 +379,6 @@ function Game({ settings, onChange, onQuit, muted }) {
           </div>
         </div>
       </div>
-
-      {vsComputer && (
-        <div className="mt-4">
-          <div className="form-check form-switch d-inline-flex align-items-center gap-2">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              role="switch"
-              id="computer-first"
-              checked={settings.computerFirst}
-              onChange={toggleWhoStarts}
-            />
-            <label className="form-check-label" htmlFor="computer-first">
-              Computer goes first
-            </label>
-          </div>
-          {played > 0 && (
-            <p className="text-body-secondary small mb-0">
-              Changes apply to the next game.
-            </p>
-          )}
-        </div>
-      )}
 
       <div className="mt-4 d-flex gap-2 justify-content-center">
         <button

@@ -115,3 +115,14 @@ body {
   --bs-btn-active-bg: #adb5bd;
   --bs-btn-active-border-color: #adb5bd;
 }
+
+/* The transient-message region above the board. It holds its height while
+   empty so a warning appearing does not shove the board down the page; the
+   width is capped so a one-line message does not stretch across a wide screen
+   and read as a banner. Height fits the tallest message — two lines of text
+   over a row of buttons — and content taller than that is allowed to grow
+   rather than be clipped. */
+.message-slot {
+  min-height: 8rem;
+  max-width: 40rem;
+}

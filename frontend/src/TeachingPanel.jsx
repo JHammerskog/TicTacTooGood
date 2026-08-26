@@ -64,6 +64,7 @@ function TeachingPanel({
   if (analysis.status !== 'in_progress') {
     const slips = records.filter((record) => record.mistake);
     const unjudged = records.filter((record) => !record.judged).length;
+    const checked = records.length - unjudged;
     return (
       <div className="text-start">
         <h2 className="fs-5">
@@ -75,10 +76,14 @@ function TeachingPanel({
               No mistakes. You played it out correctly.
             </p>
           ) : (
-            <p className="text-body-secondary mb-0">
-              Nothing flagged in the {records.length - unjudged} move
-              {records.length - unjudged === 1 ? '' : 's'} I could check.
-            </p>
+            // Nothing checked at all: the paragraph below already says so, and
+            // "nothing flagged in the 0 moves I could check" is noise.
+            checked > 0 && (
+              <p className="text-body-secondary mb-0">
+                Nothing flagged in the {checked} move{checked === 1 ? '' : 's'}{' '}
+                I could check.
+              </p>
+            )
           )
         ) : (
           <>

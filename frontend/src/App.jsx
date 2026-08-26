@@ -4,9 +4,12 @@ import StartScreen from './StartScreen.jsx';
 import ThemeControls from './ThemeControls.jsx';
 
 const DEFAULT_SETTINGS = {
-  opponent: 'hotseat',
+  // Which mark the computer plays, or null for hotseat. `difficulty` is kept
+  // even while the computer is off, so switching it on mid-game has a setting
+  // to use without asking again.
+  computerMark: null,
+  difficulty: 'fallible',
   teaching: 'hints',
-  computerFirst: false,
   critique: true,
 };
 
@@ -24,11 +27,13 @@ function storedTheme() {
   }
 }
 
+/** Sound is off until asked for: a page that starts making noise is worse than
+ *  one that is quiet, and the pencil is a flourish, not information. */
 function storedMuted() {
   try {
-    return localStorage.getItem(MUTED_KEY) === 'true';
+    return localStorage.getItem(MUTED_KEY) !== 'false';
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -47,13 +52,19 @@ function App() {
     }
   }, [theme]);
 
-  useEffect(() => {
+  // Written on change rather than in an effect. An effect also runs on mount,
+  // which stamped the default into storage before the listener had chosen
+  // anything — so every browser that had ever loaded the app carried an
+  // explicit "sound on" that outranked the default and could never be undone
+  // by changing the default.
+  function changeMuted(next) {
+    setMuted(next);
     try {
-      localStorage.setItem(MUTED_KEY, String(muted));
+      localStorage.setItem(MUTED_KEY, String(next));
     } catch {
       // Not remembered; not fatal.
     }
-  }, [muted]);
+  }
 
   return (
     <main className="container py-5">
@@ -61,7 +72,7 @@ function App() {
         theme={theme}
         onTheme={setTheme}
         muted={muted}
-        onMuted={setMuted}
+        onMuted={changeMuted}
       />
       {screen === 'start' ? (
         <StartScreen
