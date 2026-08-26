@@ -305,3 +305,28 @@ export function judgeMove(analysis, index) {
   }
   return { played, bestOutcome, alternatives };
 }
+
+/**
+ * Every empty square that would win the game immediately for `mark`.
+ *
+ * A fork leaves two of them, which is why this returns a list rather than a
+ * single square: after the tutorials' punish there is no one right answer.
+ *
+ * @param {Array<'X' | 'O' | null>} board - The position to look at.
+ * @param {'X' | 'O'} mark - The player looking for a win.
+ * @returns {number[]} Cell indices, ascending. Empty if nothing wins yet.
+ */
+export function winningSquares(board, mark) {
+  const wins = [];
+  for (let index = 0; index < board.length; index += 1) {
+    if (board[index] !== null) {
+      continue;
+    }
+    const trial = board.slice();
+    trial[index] = mark;
+    if (calculateWinner(trial)?.player === mark) {
+      wins.push(index);
+    }
+  }
+  return wins;
+}

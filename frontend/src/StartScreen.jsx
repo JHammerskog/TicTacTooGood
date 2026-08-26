@@ -26,15 +26,15 @@ const OPPONENTS = [
   },
 ];
 
-function StartScreen({ settings, onChange, onStart }) {
+function StartScreen({ settings, onChange, onStart, onBack }) {
   const chosen =
     settings.computerMark === null ? 'hotseat' : settings.difficulty;
 
   return (
     <div className="text-center">
-      <h1 className="mb-2">TicTacTooGood</h1>
-      <p className="text-body-secondary fs-5 mb-4">
-        Learn the patterns that decide the game.
+      <h1 className="mb-2">Play a game</h1>
+      <p className="text-body-secondary mb-4">
+        Set it up however you like — all of this can be changed mid-game too.
       </p>
       <div className="d-inline-block text-start">
         <fieldset className="mb-4">
@@ -87,13 +87,20 @@ function StartScreen({ settings, onChange, onStart }) {
           />
         </div>
       </div>
-      <div>
+      <div className="d-flex justify-content-center gap-2 mt-4">
         <button
           type="button"
-          className="btn btn-primary btn-lg mt-3"
+          className="btn btn-primary btn-lg"
           onClick={onStart}
         >
           Start game
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-lg"
+          onClick={onBack}
+        >
+          Back
         </button>
       </div>
     </div>

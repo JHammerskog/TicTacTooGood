@@ -1,23 +1,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  allMovesTied,
   calculateWinner,
-  playedCount,
-  nextPlayer,
+  CELL_NAMES,
+  describeOutcome,
+  describeResult,
   isDraw,
   isOver,
-  CELL_NAMES,
-  RULE_TEXT,
-  describeOutcome,
-  visibleMoves,
-  allMovesTied,
-  TIED_MESSAGE,
-  describeResult,
-  playInHistory,
+  judgeMove,
   lastMoveIndex,
   moveLabels,
-  judgeMove,
+  nextPlayer,
+  playedCount,
+  playInHistory,
+  RULE_TEXT,
+  TIED_MESSAGE,
+  visibleMoves,
+  winningSquares,
 } from './game.js';
+import {
+  TUTORIALS,
+  findTutorial,
+  scriptedReply,
+  expectedMove,
+} from './tutorials.js';
+import facts from './tutorials.json' with { type: 'json' };
 
 /**
  * Builds a board from a 9-character string, reading left-to-right then
@@ -389,4 +397,197 @@ test('nothing is judged without an analysis', () => {
   assert.equal(judgeMove(null, 4), null);
   assert.equal(judgeMove({ moves: [] }, 4), null);
   assert.equal(judgeMove(afterCentre, 4), null); // 4 is occupied: not a legal move
+});
+
+test('every tutorial has a name, a summary and a mark', () => {
+  assert.equal(TUTORIALS.length, 4);
+  for (const tutorial of TUTORIALS) {
+    assert.ok(tutorial.name.length > 0, tutorial.id);
+    assert.ok(tutorial.summary.length > 0, tutorial.id);
+    assert.ok(['X', 'O'].includes(tutorial.mark), tutorial.id);
+  }
+});
+
+test('the three attacking tutorials walk through their line', () => {
+  const attacking = TUTORIALS.filter((tutorial) => tutorial.practice);
+  assert.equal(attacking.length, 3);
+  for (const tutorial of attacking) {
+    // Empty board, then one position per scripted move.
+    assert.equal(tutorial.steps.length, 4, tutorial.id);
+    assert.equal(tutorial.steps[0].board.filter(Boolean).length, 0);
+    assert.equal(tutorial.steps[3].board.filter(Boolean).length, 3);
+    for (const step of tutorial.steps) {
+      assert.ok(step.note.length > 0, tutorial.id);
+    }
+  }
+});
+
+test('the defending tutorial has rules and no practice', () => {
+  const going = findTutorial('going-second');
+  assert.equal(going.practice, null);
+  assert.equal(going.steps.length, 0);
+  assert.equal(going.rules.length, 5);
+});
+
+test('the scripted opponent plays its replies in order', () => {
+  const board = Array(9).fill(null);
+  board[4] = 'X';
+  // centre-first scripts [0, 1]: the sound corner, then a losing side.
+  assert.equal(scriptedReply(board, [0, 1]), 0);
+  board[0] = 'O';
+  board[8] = 'X';
+  assert.equal(scriptedReply(board, [0, 1]), 1);
+});
+
+test('the scripted opponent skips a reply the player has taken', () => {
+  const board = Array(9).fill(null);
+  board[0] = 'X';
+  assert.equal(scriptedReply(board, [0, 1]), 1);
+});
+
+test('the scripted opponent falls back to any free cell', () => {
+  const board = Array(9).fill('X');
+  board[5] = null;
+  assert.equal(scriptedReply(board, [0, 1]), 5);
+  assert.equal(scriptedReply(Array(9).fill('X'), [0, 1]), -1);
+});
+
+test('the expected move follows the line, then the punish', () => {
+  const centre = findTutorial('centre-first');
+  const board = Array(9).fill(null);
+  assert.equal(expectedMove(board, centre), 4);
+
+  board[4] = 'X';
+  board[0] = 'O';
+  assert.equal(expectedMove(board, centre), 8);
+
+  board[8] = 'X';
+  board[1] = 'O'; // they fall for it with a side
+  assert.equal(expectedMove(board, centre), 2);
+});
+
+test('there is no expected move once the player leaves the line', () => {
+  const centre = findTutorial('centre-first');
+  const board = Array(9).fill(null);
+  board[4] = 'X';
+  board[0] = 'O';
+  board[5] = 'X'; // not the opposite corner
+  board[2] = 'O'; // not a square the punish table covers
+  assert.equal(expectedMove(board, centre), null);
+});
+
+test('there is no expected move when the second move misses the fork', () => {
+  const centre = findTutorial('centre-first');
+  const board = Array(9).fill(null);
+  board[4] = 'X';
+  board[scriptedReply(board, centre.practice.replies)] = 'O';
+  board[5] = 'X'; // deviation: not the opposite corner (8)
+  board[scriptedReply(board, centre.practice.replies)] = 'O';
+  assert.equal(expectedMove(board, centre), null);
+});
+
+test("the scripted opponent's first reply is the corner the punish table targets", () => {
+  for (const tutorial of TUTORIALS.filter((t) => t.practice)) {
+    assert.equal(tutorial.practice.replies[0], tutorial.line[1], tutorial.id);
+  }
+});
+
+test('every practice line, played out with the scripted opponent, wins', () => {
+  // Simulates the whole practice phase: the player follows expectedMove
+  // (falling back to any immediate win once the line is exhausted), the
+  // opponent follows scriptedReply. If a tutorial's replies were changed to
+  // a square that does not lose, the punish move would no longer be in
+  // `punish`, expectedMove would return null, no square would win
+  // immediately, and the guard below would catch the stuck position.
+  const attacking = TUTORIALS.filter((tutorial) => tutorial.practice);
+  for (const tutorial of attacking) {
+    let squares = Array(9).fill(null);
+    let guard = 0;
+    while (!isOver(squares) && guard < 9) {
+      guard += 1;
+      const turn = nextPlayer(squares);
+      let index;
+      if (turn === tutorial.mark) {
+        const expected = expectedMove(squares, tutorial);
+        index =
+          expected ??
+          squares.findIndex((cell, cellIndex) => {
+            if (cell !== null) {
+              return false;
+            }
+            const attempt = squares.slice();
+            attempt[cellIndex] = tutorial.mark;
+            return calculateWinner(attempt)?.player === tutorial.mark;
+          });
+      } else {
+        index = scriptedReply(squares, tutorial.practice.replies);
+      }
+      assert.ok(index >= 0, `${tutorial.id}: no move available`);
+      const next = squares.slice();
+      next[index] = turn;
+      squares = next;
+    }
+    assert.equal(calculateWinner(squares)?.player, tutorial.mark, tutorial.id);
+  }
+});
+
+const COUNT_WORDS = { 2: 'Two', 3: 'Three', 4: 'Four' };
+
+test('the last step note names how many replies lose', () => {
+  const attacking = TUTORIALS.filter((tutorial) => tutorial.practice);
+  for (const tutorial of attacking) {
+    const fact = facts.find((entry) => entry.id === tutorial.id);
+    const word = COUNT_WORDS[fact.losing.length];
+    const lastNote = tutorial.steps[tutorial.steps.length - 1].note;
+    assert.match(lastNote, new RegExp(`\\b${word}\\b`, 'i'), tutorial.id);
+  }
+});
+
+test('winning squares finds both halves of a fork', () => {
+  const board = [...'OOX.X...X'].map((c) => (c === '.' ? null : c));
+  // X holds 2, 4 and 8: playing 5 completes the right column, 6 the diagonal.
+  assert.deepEqual(winningSquares(board, 'X'), [5, 6]);
+  assert.deepEqual(winningSquares(board, 'O'), []);
+  assert.deepEqual(winningSquares(Array(9).fill(null), 'X'), []);
+});
+
+test('the scripted opponent blocks a win it can see', () => {
+  // X holds two corners of the top row with the middle free.
+  const board = [...'X.X.O....'].map((c) => (c === '.' ? null : c));
+  assert.equal(scriptedReply(board, []), 1);
+});
+
+test('the scripted opponent takes its own win ahead of blocking', () => {
+  // O to move: O completes the left column at 6, X would complete 2-5-8 at 8.
+  const board = [...'OXXO.X...'].map((c) => (c === '.' ? null : c));
+  assert.equal(nextPlayer(board), 'O');
+  assert.deepEqual(winningSquares(board, 'O'), [6]);
+  assert.deepEqual(winningSquares(board, 'X'), [8]);
+  assert.equal(scriptedReply(board, []), 6);
+});
+
+test('the scripted opponent never leaves a win of ours unanswered', () => {
+  for (const tutorial of TUTORIALS.filter((t) => t.practice)) {
+    const board = Array(9).fill(null);
+    const theirs = tutorial.mark === 'X' ? 'O' : 'X';
+    while (!calculateWinner(board) && board.includes(null)) {
+      const mine = playedCount(board) % 2 === 0;
+      if (mine) {
+        const wanted = expectedMove(board, tutorial);
+        board[wanted ?? winningSquares(board, tutorial.mark)[0]] =
+          tutorial.mark;
+        continue;
+      }
+      // Their turn: if we were one move from winning, they had to answer it.
+      const threats = winningSquares(board, tutorial.mark);
+      const reply = scriptedReply(board, tutorial.practice.replies);
+      if (threats.length > 0 && winningSquares(board, theirs).length === 0) {
+        assert.ok(
+          threats.includes(reply),
+          `${tutorial.id}: we threatened ${threats} and they played ${reply}`,
+        );
+      }
+      board[reply] = theirs;
+    }
+  }
 });

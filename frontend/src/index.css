@@ -78,6 +78,39 @@ body {
   border-color: var(--bs-danger-border-subtle);
 }
 
+/* Authored tutorial highlights. Separate from the engine tints above because
+   they say something different: where YOU should play next, and how each of
+   their replies turns out. Same theme-aware subtle pairs, plus a border strong
+   enough to read as deliberate rather than as a hover state. */
+/* Orange, not yellow: in the practice phase the last-move yellow is on the
+   board at the same time, and two shades of the same hue meaning two different
+   things is exactly the confusion this highlight exists to avoid. Bootstrap
+   ships no subtle pair for orange, so these are its own tint/shade formula
+   applied to --bs-orange (#fd7e14) — 80% toward the ground for the fill, 60%
+   for the border. */
+.board-cell.board-cell-next {
+  --tutorial-next-bg: #ffe5d0;
+  --tutorial-next-border: #fecba1;
+  background: var(--tutorial-next-bg);
+  border-color: var(--tutorial-next-border);
+  box-shadow: inset 0 0 0 3px var(--tutorial-next-border);
+}
+
+[data-bs-theme='dark'] .board-cell.board-cell-next {
+  --tutorial-next-bg: #331904;
+  --tutorial-next-border: #8a4410;
+}
+
+.board-cell.board-cell-good {
+  background: var(--bs-success-bg-subtle);
+  border-color: var(--bs-success-border-subtle);
+}
+
+.board-cell.board-cell-bad {
+  background: var(--bs-danger-bg-subtle);
+  border-color: var(--bs-danger-border-subtle);
+}
+
 /* Links a panel row to its square, in both directions. */
 .board-cell.board-cell-linked {
   outline: 3px solid var(--bs-primary);
