@@ -1,3 +1,10 @@
+/* Reserve the scrollbar gutter at all times. Without it, turning teaching on
+   makes the page taller, the scrollbar appears, and the whole board jumps 7px
+   left — which reads as the layout lurching even though it is centred. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
 }
@@ -52,4 +59,70 @@ body {
   stroke: var(--bs-danger);
   stroke-width: 0.08;
   stroke-linecap: round;
+}
+
+/* Annotation tints. Bootstrap's subtle pairs are theme-aware, like the
+   last-move yellow above. Empty cells only, so these never fight it. */
+.board-cell.board-cell-win {
+  background: var(--bs-success-bg-subtle);
+  border-color: var(--bs-success-border-subtle);
+}
+
+.board-cell.board-cell-draw {
+  background: var(--bs-secondary-bg-subtle);
+  border-color: var(--bs-secondary-border-subtle);
+}
+
+.board-cell.board-cell-loss {
+  background: var(--bs-danger-bg-subtle);
+  border-color: var(--bs-danger-border-subtle);
+}
+
+/* Links a panel row to its square, in both directions. */
+.board-cell.board-cell-linked {
+  outline: 3px solid var(--bs-primary);
+  outline-offset: -3px;
+}
+
+.board-star {
+  font-size: 0.4em;
+  opacity: 0.65;
+}
+
+/* Bootstrap keeps its outline-button colours identical in both themes, and they
+   are chosen for a white ground: on the dark background #0d6efd measures 3.42:1
+   and #6c757d 3.28:1, both under the 4.5:1 needed for text. Lighten them to the
+   same hues Bootstrap itself uses for dark-mode text, via the button variable
+   API so hover and active states follow. */
+[data-bs-theme='dark'] .btn-outline-primary {
+  --bs-btn-color: #6ea8fe;
+  --bs-btn-border-color: #6ea8fe;
+  --bs-btn-hover-color: #000;
+  --bs-btn-hover-bg: #6ea8fe;
+  --bs-btn-hover-border-color: #6ea8fe;
+  --bs-btn-active-color: #000;
+  --bs-btn-active-bg: #6ea8fe;
+  --bs-btn-active-border-color: #6ea8fe;
+}
+
+[data-bs-theme='dark'] .btn-outline-secondary {
+  --bs-btn-color: #adb5bd;
+  --bs-btn-border-color: #6c757d;
+  --bs-btn-hover-color: #000;
+  --bs-btn-hover-bg: #adb5bd;
+  --bs-btn-hover-border-color: #adb5bd;
+  --bs-btn-active-color: #000;
+  --bs-btn-active-bg: #adb5bd;
+  --bs-btn-active-border-color: #adb5bd;
+}
+
+/* The transient-message region above the board. It holds its height while
+   empty so a warning appearing does not shove the board down the page; the
+   width is capped so a one-line message does not stretch across a wide screen
+   and read as a banner. Height fits the tallest message — two lines of text
+   over a row of buttons — and content taller than that is allowed to grow
+   rather than be clipped. */
+.message-slot {
+  min-height: 8rem;
+  max-width: 40rem;
 }

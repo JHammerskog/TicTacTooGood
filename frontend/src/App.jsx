@@ -1,69 +1,93 @@
-import { useState } from 'react';
-import Board from './Board.jsx';
-import { calculateWinner } from './game.js';
+import { useEffect, useState } from 'react';
+import Game from './Game.jsx';
+import StartScreen from './StartScreen.jsx';
+import ThemeControls from './ThemeControls.jsx';
 
-const EMPTY_BOARD = Array(9).fill(null);
+const DEFAULT_SETTINGS = {
+  // Which mark the computer plays, or null for hotseat. `difficulty` is kept
+  // even while the computer is off, so switching it on mid-game has a setting
+  // to use without asking again.
+  computerMark: null,
+  difficulty: 'fallible',
+  teaching: 'hints',
+  critique: true,
+};
+
+const THEME_KEY = 'tictactoogood:theme';
+const MUTED_KEY = 'tictactoogood:muted';
+
+/** Reads the stored theme, defaulting to dark. Storage can throw in a private
+ *  window or when site data is blocked, so a failure falls back rather than
+ *  taking the app down. */
+function storedTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY) ?? 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+/** Sound is off until asked for: a page that starts making noise is worse than
+ *  one that is quiet, and the pencil is a flourish, not information. */
+function storedMuted() {
+  try {
+    return localStorage.getItem(MUTED_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 function App() {
-  const [squares, setSquares] = useState(EMPTY_BOARD);
-  // Which cell was played last cannot be derived from `squares` — the board
-  // records marks, not their order — so unlike the values below it is stored.
-  const [lastMove, setLastMove] = useState(null);
+  const [screen, setScreen] = useState('start');
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [theme, setTheme] = useState(storedTheme);
+  const [muted, setMuted] = useState(storedMuted);
 
-  // ponytail: turn/draw derivation lives here rather than in game.js. Phase 2's
-  // solver needs "whose turn" and "is it over" too — move `played`, `isDraw`,
-  // `isOver` and `nextPlayer` into game.js when that work starts, where they
-  // also become testable under the existing `node --test` for no new deps.
-  const winner = calculateWinner(squares);
-  const played = squares.filter((square) => square !== null).length;
-  const isDraw = !winner && played === squares.length;
-  const isOver = Boolean(winner) || isDraw;
-  const nextPlayer = played % 2 === 0 ? 'X' : 'O';
-
-  function handlePlay(index) {
-    if (squares[index] || isOver) {
-      return;
+  useEffect(() => {
+    document.documentElement.setAttribute('data-bs-theme', theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // A viewer who blocks storage still gets the theme, just not remembered.
     }
-    const next = squares.slice();
-    next[index] = nextPlayer;
-    setSquares(next);
-    setLastMove(index);
-  }
+  }, [theme]);
 
-  function startNewGame() {
-    setSquares(EMPTY_BOARD);
-    setLastMove(null);
-  }
-
-  let status;
-  if (winner) {
-    status = `${winner.player} wins!`;
-  } else if (isDraw) {
-    status = 'Draw';
-  } else {
-    status = `${nextPlayer} to play`;
+  // Written on change rather than in an effect. An effect also runs on mount,
+  // which stamped the default into storage before the listener had chosen
+  // anything — so every browser that had ever loaded the app carried an
+  // explicit "sound on" that outranked the default and could never be undone
+  // by changing the default.
+  function changeMuted(next) {
+    setMuted(next);
+    try {
+      localStorage.setItem(MUTED_KEY, String(next));
+    } catch {
+      // Not remembered; not fatal.
+    }
   }
 
   return (
-    <main className="container py-5 text-center">
-      <h1 className="mb-4">TicTacTooGood</h1>
-      <p className="fs-4 mb-4" aria-live="polite">
-        {status}
-      </p>
-      <Board
-        squares={squares}
-        winningLine={winner?.line}
-        lastMove={lastMove}
-        isOver={isOver}
-        onPlay={handlePlay}
+    <main className="container py-5">
+      <ThemeControls
+        theme={theme}
+        onTheme={setTheme}
+        muted={muted}
+        onMuted={changeMuted}
       />
-      <button
-        type="button"
-        className="btn btn-primary mt-4"
-        onClick={startNewGame}
-      >
-        New Game
-      </button>
+      {screen === 'start' ? (
+        <StartScreen
+          settings={settings}
+          onChange={setSettings}
+          onStart={() => setScreen('game')}
+        />
+      ) : (
+        <Game
+          settings={settings}
+          onChange={setSettings}
+          onQuit={() => setScreen('start')}
+          muted={muted}
+        />
+      )}
     </main>
   );
 }
