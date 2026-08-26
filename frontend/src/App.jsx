@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import Game from './Game.jsx';
+import Landing from './Landing.jsx';
+import LearnList from './LearnList.jsx';
 import StartScreen from './StartScreen.jsx';
 import ThemeControls from './ThemeControls.jsx';
+import Tutorial from './Tutorial.jsx';
 
 const DEFAULT_SETTINGS = {
   // Which mark the computer plays, or null for hotseat. `difficulty` is kept
@@ -38,10 +41,11 @@ function storedMuted() {
 }
 
 function App() {
-  const [screen, setScreen] = useState('start');
+  const [screen, setScreen] = useState('landing');
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [theme, setTheme] = useState(storedTheme);
   const [muted, setMuted] = useState(storedMuted);
+  const [tutorialId, setTutorialId] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', theme);
@@ -74,17 +78,45 @@ function App() {
         muted={muted}
         onMuted={changeMuted}
       />
-      {screen === 'start' ? (
+      {screen === 'landing' ? (
+        <Landing
+          onLearn={() => setScreen('tutorials')}
+          onPlay={() => setScreen('setup')}
+        />
+      ) : screen === 'setup' ? (
         <StartScreen
           settings={settings}
           onChange={setSettings}
           onStart={() => setScreen('game')}
+          onBack={() => setScreen('landing')}
+        />
+      ) : screen === 'tutorials' ? (
+        <LearnList
+          onOpen={(id) => {
+            setTutorialId(id);
+            setScreen('tutorial');
+          }}
+          onBack={() => setScreen('landing')}
+        />
+      ) : screen === 'tutorial' ? (
+        <Tutorial
+          id={tutorialId}
+          muted={muted}
+          onPlayForReal={(playerMark) => {
+            setSettings((previous) => ({
+              ...previous,
+              computerMark: playerMark === 'X' ? 'O' : 'X',
+              difficulty: 'fallible',
+            }));
+            setScreen('game');
+          }}
+          onQuit={() => setScreen('tutorials')}
         />
       ) : (
         <Game
           settings={settings}
           onChange={setSettings}
-          onQuit={() => setScreen('start')}
+          onQuit={() => setScreen('landing')}
           muted={muted}
         />
       )}

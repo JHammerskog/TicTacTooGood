@@ -7,6 +7,7 @@ import TeachingPanel from './TeachingPanel.jsx';
 import TeachingDial from './TeachingDial.jsx';
 import { playPencil } from './sound.js';
 import { useAnalysis } from './useAnalysis.js';
+import { useGameHistory } from './useGameHistory.js';
 import {
   calculateWinner,
   CELL_NAMES,
@@ -14,13 +15,9 @@ import {
   isOver,
   judgeMove,
   lastMoveIndex,
-  moveLabels,
   nextPlayer,
-  playInHistory,
   RULE_TEXT,
 } from './game.js';
-
-const EMPTY_BOARD = Array(9).fill(null);
 
 /** The other mark. Only meaningful when the computer is playing one of them. */
 const other = (mark) => (mark === 'X' ? 'O' : 'X');
@@ -28,12 +25,7 @@ const other = (mark) => (mark === 'X' ? 'O' : 'X');
 /** How long the computer appears to think, so its move reads as a move. */
 const THINKING_MS = 400;
 
-/** Gap between plies while replaying, so a jump reads as a sequence. */
-const REPLAY_STEP_MS = 180;
-
 function Game({ settings, onChange, onQuit, muted }) {
-  const [history, setHistory] = useState([EMPTY_BOARD]);
-  const [cursor, setCursor] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [showMoves, setShowMoves] = useState(false);
   const [critique, setCritique] = useState(null);
@@ -42,14 +34,25 @@ function Game({ settings, onChange, onQuit, muted }) {
   // arrived" — a move played faster than the network must not be reported as
   // correct.
   const [records, setRecords] = useState([]);
-  // Where navigation is heading. The cursor walks toward it a ply at a time so
-  // a jump replays the moves between instead of snapping.
-  const [target, setTarget] = useState(null);
-  const squares = history[cursor];
-  const lastMove = lastMoveIndex(history[cursor - 1], squares);
-  const labels = moveLabels(history);
-  const atTip = cursor === history.length - 1;
-  const replaying = target !== null && target !== cursor;
+
+  function scratch() {
+    if (!muted) {
+      playPencil();
+    }
+  }
+
+  const {
+    history,
+    cursor,
+    squares,
+    lastMove,
+    labels,
+    atTip,
+    replaying,
+    playAt: playInGame,
+    goTo: goToPly,
+    reset: resetHistory,
+  } = useGameHistory(scratch);
   // "Settled and live": the position on screen is the real one, and nothing is
   // mid-flight. The computer may only move in this state. A critique does NOT
   // hold it — a warning is something to read, not a dialog to dismiss, so play
@@ -77,7 +80,11 @@ function Game({ settings, onChange, onQuit, muted }) {
     isComputerTurn ? settings.difficulty : null,
     // `over` is in here because the end-of-game review needs the analysis even
     // when every teaching setting is off: it reads the result from it.
-    teachingOn || settings.critique || isComputerTurn || over,
+    // `!replaying` suppresses the requests for positions a jump only passes
+    // through: they are never rendered, and each one was fired and aborted a
+    // frame later. The destination position fetches normally, because
+    // `replaying` is false again once the cursor arrives.
+    (teachingOn || settings.critique || isComputerTurn || over) && !replaying,
   );
 
   // Guard against the one frame where `data` still describes the previous
@@ -85,21 +92,11 @@ function Game({ settings, onChange, onQuit, muted }) {
   // already painted the new board.
   const analysis = data && data.board === squares ? data : null;
 
-  function scratch() {
-    if (!muted) {
-      playPencil();
-    }
-  }
-
   function playAt(index) {
-    if (squares[index] !== null || over) {
+    if (over) {
       return;
     }
-    scratch();
-    setTarget(null);
-    const next = playInHistory(history, cursor, index, player);
-    setHistory(next.history);
-    setCursor(next.cursor);
+    playInGame(index, player);
   }
 
   // Every navigation goes through here so there is exactly one path, and so a
@@ -108,7 +105,7 @@ function Game({ settings, onChange, onQuit, muted }) {
   // position no longer on screen.
   function goTo(ply) {
     setCritique(null);
-    setTarget(ply);
+    goToPly(ply);
   }
 
   // The board's click handler, as opposed to `playAt`, which the computer's
@@ -136,13 +133,7 @@ function Game({ settings, onChange, onQuit, muted }) {
     const mistake = judgeMove(analysis, index);
     setRecords((previous) => [
       ...previous.filter((record) => record.ply < cursor + 1),
-      {
-        ply: cursor + 1,
-        index,
-        mark: player,
-        judged: analysis !== null,
-        mistake,
-      },
+      { ply: cursor + 1, judged: analysis !== null, mistake },
     ]);
     // Set on every move, not only on a bad one: a clean move clears whatever
     // warning the last one raised, which is what makes the banner go away by
@@ -168,30 +159,8 @@ function Game({ settings, onChange, onQuit, muted }) {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [isComputerTurn, live, analysis]);
 
-  useEffect(() => {
-    if (target === null || target === cursor) {
-      return undefined;
-    }
-    const step = target > cursor ? 1 : -1;
-    const timer = setTimeout(() => {
-      scratch();
-      setCursor(cursor + step);
-    }, REPLAY_STEP_MS);
-    return () => clearTimeout(timer);
-    // `scratch` is deliberately omitted: it is a plain function recreated every
-    // render, so listing it would only make this effect depend on its own
-    // render rather than on `target`/`cursor`, which are the only inputs that
-    // should restart the timer.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, cursor]);
-
   function startNewGame() {
-    // A fresh array, not the EMPTY_BOARD constant: identity is what
-    // re-triggers useAnalysis's fetch (and re-rolls a perfect opponent's
-    // random opening), and setState bails out on an identical reference.
-    setHistory([Array(9).fill(null)]);
-    setCursor(0);
-    setTarget(null);
+    resetHistory();
     setHoveredIndex(null);
     setCritique(null);
     setRecords([]);
@@ -371,7 +340,17 @@ function Game({ settings, onChange, onQuit, muted }) {
                   onHover={setHoveredIndex}
                   vsComputer={vsComputer}
                   humanMark={humanMark}
-                  records={records}
+                  records={records.map((record) => {
+                    const index = lastMoveIndex(
+                      history[record.ply - 1],
+                      history[record.ply],
+                    );
+                    return {
+                      ...record,
+                      index,
+                      mark: history[record.ply][index],
+                    };
+                  })}
                   onGoTo={goTo}
                 />
               )}

@@ -28,6 +28,13 @@ const lineEnds = (line) => {
   return { x1: from.x - dx, y1: from.y - dy, x2: to.x + dx, y2: to.y + dy };
 };
 
+/** What each `highlight` value means, for the aria-label and for the eye. */
+const HIGHLIGHT_TEXT = {
+  next: 'play here next',
+  good: 'safe for them',
+  bad: 'loses for them',
+};
+
 function Board({
   squares,
   winningLine,
@@ -38,6 +45,7 @@ function Board({
   teaching = 'off',
   hoveredIndex = null,
   onHover = () => {},
+  highlight = {},
 }) {
   const ends = winningLine && lineEnds(winningLine);
 
@@ -64,6 +72,12 @@ function Board({
     if (move && index === hoveredIndex) {
       classes.push('board-cell-linked');
     }
+    // Authored highlights, used by the tutorials. They come from the tutorial's
+    // own data rather than from the engine, which is why they are a separate
+    // channel from the `moves` tints above and never appear together with them.
+    if (highlight[index]) {
+      classes.push(`board-cell-${highlight[index]}`);
+    }
     return classes.join(' ');
   }
 
@@ -71,6 +85,10 @@ function Board({
     const parts = [CELL_NAMES[index], square ?? 'empty'];
     if (index === lastMove) {
       parts.push('last move');
+    }
+    if (highlight[index]) {
+      // The tint must not be the only way to learn this (WCAG 1.4.1).
+      parts.push(HIGHLIGHT_TEXT[highlight[index]]);
     }
     const move = analysis.get(index);
     if (move) {
