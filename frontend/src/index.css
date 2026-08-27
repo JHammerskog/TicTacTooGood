@@ -167,3 +167,43 @@ body {
   min-height: 8rem;
   max-width: 40rem;
 }
+
+/* The tutorial commentary is the lesson, not a caption, and it was set like
+   one. Measured in the browser: inside `.message-slot`'s 40rem the longest
+   note (386 characters) ran 5 lines at ~77 characters each. Prose is
+   comfortable between 45 and 75.
+
+   64ch, measured rather than picked: it is the tightest width that still wraps
+   the longest note to 5 lines rather than 6. 60ch tips it to 6, which is a
+   better measure but 29px taller — and since the block reserves the tallest
+   note's height for every step, every line here costs a line of dead space on
+   the three short steps. Bootstrap ships no measure utility, hence the
+   hand-written rule. */
+.tutorial-note {
+  max-width: 64ch;
+  margin-inline: auto;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+
+/* The walkthrough's notes vary from 61 to 386 characters, so a block that sizes
+   itself moves every control below it as you step through. All four are stacked
+   into one grid cell with only the current one visible: the block is then
+   exactly as tall as this tutorial's longest note, always, and nothing jumps.
+   `visibility: hidden` rather than `display: none` is what reserves the space,
+   and it also keeps the hidden notes out of the accessibility tree so the live
+   region announces only the note on screen. */
+.note-stack {
+  display: grid;
+}
+
+.note-stack > p {
+  grid-area: 1 / 1;
+}
+
+/* Wider than the game's slot: the walkthrough's long final notes are the only
+   prose in the app that runs past a few lines, and every line saved here is a
+   line the controls below do not have to move down. */
+.message-slot-wide {
+  max-width: 44rem;
+}

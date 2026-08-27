@@ -15,13 +15,16 @@ import {
   other,
   playedCount,
   playInHistory,
+  positionKey,
   RULE_TEXT,
+  SYMMETRIES,
   TIED_MESSAGE,
   visibleMoves,
   winningSquares,
 } from './game.js';
 import {
   TUTORIALS,
+  findTrapLoss,
   findTutorial,
   scriptedReply,
   expectedMove,
@@ -591,4 +594,122 @@ test('the scripted opponent never leaves a win of ours unanswered', () => {
       board[reply] = theirs;
     }
   }
+});
+
+const cells = (text) => [...text].map((c) => (c === '.' ? null : c));
+
+test('positionKey is identical for all eight symmetries of a position', () => {
+  const board = cells('O...X...X');
+  const keys = SYMMETRIES.map((permutation) =>
+    positionKey(permutation.map((index) => board[index])),
+  );
+  assert.equal(new Set(keys).size, 1);
+});
+
+test('positionKey separates positions that are not symmetries', () => {
+  const keys = new Set([
+    positionKey(cells('O...X...X')),
+    positionKey(cells('X...O...X')),
+    positionKey(cells('OX.X.....')),
+  ]);
+  assert.equal(keys.size, 3);
+});
+
+test('positionKey agrees with the keys the backend suite pins', () => {
+  // These three literals are asserted in backend/tests/test_tutorials.py too.
+  // They are the contract between the two languages: if either side's symmetry
+  // code changes, one of the two suites fails.
+  assert.equal(positionKey(cells('O...X...X')), '..O.X.X..');
+  assert.equal(positionKey(cells('X...O...X')), '..X.O.X..');
+  assert.equal(positionKey(cells('OX.X.....')), '.....X.XO');
+});
+
+// A real Centre first loss. X (the computer) opens in the centre, the human
+// answers in a corner, X takes the opposite corner — the trap — and the human
+// plays a side, which loses. Ply 4 is the blunder; history[3] is the trap.
+const centreFirstLoss = {
+  history: [
+    '.........',
+    '....X....',
+    'O...X....',
+    'O...X...X',
+    'OO..X...X',
+    'OOX.X...X',
+    'OOX.X.O.X',
+    'OOX.XXO.X',
+  ].map(cells),
+  records: [
+    { ply: 2, judged: true, mistake: null },
+    { ply: 4, judged: true, mistake: { bestOutcome: 'draw' } },
+    { ply: 6, judged: true, mistake: null },
+  ],
+  humanMark: 'O',
+  winner: 'X',
+};
+
+test('findTrapLoss names the tutorial whose trap beat the player', () => {
+  const found = findTrapLoss(centreFirstLoss);
+  assert.equal(found.tutorial.id, 'centre-first');
+  assert.equal(found.ply, 4);
+  assert.equal(found.rotated, false);
+});
+
+test('findTrapLoss recognises the trap in every orientation', () => {
+  const found = SYMMETRIES.map((permutation) =>
+    findTrapLoss({
+      ...centreFirstLoss,
+      history: centreFirstLoss.history.map((board) =>
+        permutation.map((index) => board[index]),
+      ),
+    }),
+  );
+  assert.ok(found.every((hit) => hit?.tutorial.id === 'centre-first'));
+  // The taught orientation is reported as such; the turned ones are not.
+  assert.ok(found.some((hit) => hit.rotated === false));
+  assert.ok(found.some((hit) => hit.rotated === true));
+});
+
+test('findTrapLoss stays quiet unless the human lost', () => {
+  assert.equal(findTrapLoss({ ...centreFirstLoss, winner: 'O' }), null);
+  assert.equal(findTrapLoss({ ...centreFirstLoss, winner: null }), null);
+});
+
+test('findTrapLoss stays quiet in hotseat', () => {
+  assert.equal(findTrapLoss({ ...centreFirstLoss, humanMark: null }), null);
+});
+
+test('findTrapLoss stays quiet when the move was never judged', () => {
+  // No analysis arrived, so there is no mistake recorded and no claim to make.
+  const records = centreFirstLoss.records.map((record) => ({
+    ...record,
+    judged: false,
+    mistake: null,
+  }));
+  assert.equal(findTrapLoss({ ...centreFirstLoss, records }), null);
+});
+
+test('findTrapLoss stays quiet for a loss that had no taught trap in it', () => {
+  // A real X win with no taught trap in it. history[3] is 'XO.X.....', whose
+  // key is '.....O.XX' — the side-first shape with the roles swapped, which
+  // must NOT match, since the trapped player is always O.
+  const noTrap = {
+    history: [
+      '.........',
+      'X........',
+      'XO.......',
+      'XO.X.....',
+      'XOOX.....',
+      'XOOXX....',
+      'XOOXXO...',
+      'XOOXXOX..',
+    ].map(cells),
+    records: [
+      { ply: 2, judged: true, mistake: null },
+      { ply: 4, judged: true, mistake: { bestOutcome: 'draw' } },
+      { ply: 6, judged: true, mistake: null },
+    ],
+    humanMark: 'O',
+    winner: 'X',
+  };
+  assert.equal(findTrapLoss(noTrap), null);
 });

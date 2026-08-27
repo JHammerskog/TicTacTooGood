@@ -71,6 +71,47 @@ export function isOver(squares) {
   return Boolean(calculateWinner(squares)) || isDraw(squares);
 }
 
+/** Rotates a 3x3 grid's index labels a quarter turn clockwise. */
+const rotate = (indices) => [6, 3, 0, 7, 4, 1, 8, 5, 2].map((i) => indices[i]);
+
+/** Mirrors a 3x3 grid's index labels left to right. */
+const mirror = (indices) => [2, 1, 0, 5, 4, 3, 8, 7, 6].map((i) => indices[i]);
+
+/**
+ * The square's eight symmetries, as index permutations: four rotations, each
+ * also mirrored. Applying one to a board gives the same position seen from a
+ * different angle.
+ */
+export const SYMMETRIES = (() => {
+  const all = [];
+  let indices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  for (let turn = 0; turn < 4; turn += 1) {
+    all.push(indices);
+    all.push(mirror(indices));
+    indices = rotate(indices);
+  }
+  return all;
+})();
+
+/**
+ * A key identifying a position's shape rather than its exact cells.
+ *
+ * Two boards that are rotations or reflections of one another share a key, so a
+ * trap the player met turned on its side still matches the taught one. The
+ * marks are compared as they are: the tutorials' trapped player is always O, so
+ * a real game's trap carries the same marks as the taught position.
+ *
+ * @param {Array<'X' | 'O' | null>} board - 9 cells.
+ * @returns {string} The smallest of the board's eight renderings, with '.' for
+ *   an empty cell — for example '..O.X.X..'.
+ */
+export function positionKey(board) {
+  const marks = board.map((cell) => cell ?? '.');
+  return SYMMETRIES.map((permutation) =>
+    permutation.map((index) => marks[index]).join(''),
+  ).sort()[0];
+}
+
 /**
  * The other mark. The backend calls this `game.opponent`; the word is avoided
  * here because "opponent" already names a difficulty setting in this app.

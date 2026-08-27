@@ -33,7 +33,7 @@ export default function LearnList({ onOpen, onBack }) {
                   {index + 1}. {tutorial.name}
                 </strong>
               </div>
-              <small className="text-body-secondary">{tutorial.summary}</small>
+              <span className="text-body-secondary">{tutorial.summary}</span>
             </button>
           ))}
         </div>

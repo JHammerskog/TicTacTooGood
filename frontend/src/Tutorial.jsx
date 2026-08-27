@@ -31,7 +31,7 @@ export default function Tutorial({ id, muted, onPlayForReal, onQuit }) {
   return (
     <div className="text-center">
       <h1 className="mb-1">{tutorial.name}</h1>
-      <p className="text-body-secondary small mb-4">{tutorial.summary}</p>
+      <p className="text-body-secondary mb-4">{tutorial.summary}</p>
 
       {tutorial.rules ? (
         <div className="mx-auto text-start" style={{ maxWidth: '40rem' }}>
@@ -42,7 +42,7 @@ export default function Tutorial({ id, muted, onPlayForReal, onQuit }) {
               </li>
             ))}
           </ol>
-          <p className="text-body-secondary mt-3">
+          <p className="text-body-secondary mt-3 tutorial-note">
             Want to see it for yourself? Start a game, set{' '}
             <strong>Computer plays</strong> to <strong>X</strong> with the{' '}
             <strong>perfect</strong> opponent and teaching on{' '}
@@ -80,7 +80,7 @@ export default function Tutorial({ id, muted, onPlayForReal, onQuit }) {
           >
             Now try it against a fallible computer
           </button>
-          <p className="text-body-secondary small mt-2 mb-0">
+          <p className="text-body-secondary mt-2 mb-0">
             It falls for Centre first about two times in three, and for Corner
             first and Side first about one in three. That is the honest rate.
           </p>

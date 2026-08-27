@@ -291,3 +291,21 @@ def test_five_traps_two_clean_three_mixed() -> None:
     mixed = [losing for losing in traps if len({kind(i) for i in losing}) > 1]
     assert len(clean) == 2
     assert len(mixed) == 3
+
+
+def test_the_trap_positions_have_three_distinct_keys() -> None:
+    """The frontend tells traps apart by shape, so the shapes must differ.
+
+    `positionKey` in frontend/src/game.js computes these same three strings and
+    asserts them in game.test.js. A change to either side's symmetry code, or to
+    a tutorial's line, breaks one of the two suites rather than silently
+    matching the wrong tutorial to a player's loss.
+    """
+    keys = {
+        tutorial["id"]: _canonical(trap_position(tutorial["line"])) for tutorial in load_tutorials()
+    }
+    assert keys == {
+        "centre-first": "..O.X.X..",
+        "corner-first": "..X.O.X..",
+        "side-first": ".....X.XO",
+    }

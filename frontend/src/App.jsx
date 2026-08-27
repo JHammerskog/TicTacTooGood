@@ -47,6 +47,10 @@ function App() {
   const [theme, setTheme] = useState(storedTheme);
   const [muted, setMuted] = useState(storedMuted);
   const [tutorialId, setTutorialId] = useState(null);
+  // Session-wide, deliberately not stored: localStorage is per-browser rather
+  // than per-person, so a remembered "already seen" would silence the offer for
+  // someone who has never seen it. Reloading is the only way to get another.
+  const [trapShown, setTrapShown] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', theme);
@@ -125,6 +129,12 @@ function App() {
           onChange={setSettings}
           onQuit={() => setScreen('landing')}
           muted={muted}
+          trapShown={trapShown}
+          onTrapShown={() => setTrapShown(true)}
+          onLearnTrap={(id) => {
+            setTutorialId(id);
+            setScreen('tutorial');
+          }}
         />
       )}
     </main>

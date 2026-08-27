@@ -13,7 +13,7 @@ can show you which squares hold the win, name the pattern behind them, warn you
 the moment you throw the game, and walk you back through your mistakes when it
 is over.
 
-![A warning about the move just played, the losing line, and a review naming the mistake](docs/screenshot.png)
+![The Centre first tutorial with its trap set: four red squares where the opponent's reply loses, two green where it survives, and the note explaining why a player looking for a block sees nothing to do](docs/screenshot.png)
 
 ## Quick start
 

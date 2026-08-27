@@ -6,6 +6,7 @@ import MoveList from './MoveList.jsx';
 import TeachingPanel from './TeachingPanel.jsx';
 import TeachingDial from './TeachingDial.jsx';
 import { playPencil } from './sound.js';
+import { findTrapLoss } from './tutorials.js';
 import { useAnalysis } from './useAnalysis.js';
 import { useGameHistory } from './useGameHistory.js';
 import {
@@ -22,8 +23,20 @@ import {
   THINKING_MS,
 } from './game.js';
 
-function Game({ settings, onChange, onQuit, muted }) {
+function Game({
+  settings,
+  onChange,
+  onQuit,
+  muted,
+  trapShown,
+  onTrapShown,
+  onLearnTrap,
+}) {
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  // Whether THIS game is showing the trap offer. Separate from App's
+  // session-wide flag: without it the block would vanish the instant it
+  // recorded itself, because the flag that reveals it would then suppress it.
+  const [offerTrap, setOfferTrap] = useState(false);
   const [showMoves, setShowMoves] = useState(false);
   const [critique, setCritique] = useState(null);
   // One entry per human move, so the post-game review needs no refetching.
@@ -74,6 +87,18 @@ function Game({ settings, onChange, onQuit, muted }) {
   const isComputerTurn =
     vsComputer && !over && player === settings.computerMark;
   const teachingOn = settings.teaching !== 'off';
+
+  // Only in a finished game against the computer: in hotseat `records` holds
+  // both players' moves and there is no single "you" to address.
+  const trapLoss =
+    over && vsComputer
+      ? findTrapLoss({
+          history,
+          records,
+          humanMark,
+          winner: winner?.player ?? null,
+        })
+      : null;
 
   const { data, loading, error, retry } = useAnalysis(
     squares,
@@ -150,11 +175,24 @@ function Game({ settings, onChange, onQuit, muted }) {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [isComputerTurn, live, analysis]);
 
+  const trapAvailable = trapLoss !== null;
+  useEffect(() => {
+    if (!trapAvailable || trapShown || offerTrap) {
+      return;
+    }
+    setOfferTrap(true);
+    onTrapShown();
+    // `onTrapShown` is recreated every render, so listing it would re-run this
+    // on every render rather than only when a trap first becomes available.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [trapAvailable, trapShown, offerTrap]);
+
   function startNewGame() {
     resetHistory();
     setHoveredIndex(null);
     setCritique(null);
     setRecords([]);
+    setOfferTrap(false);
   }
 
   let status;
@@ -347,6 +385,8 @@ function Game({ settings, onChange, onQuit, muted }) {
                     };
                   })}
                   onGoTo={goTo}
+                  trapOffer={offerTrap ? trapLoss : null}
+                  onLearnTrap={onLearnTrap}
                 />
               )}
             </div>

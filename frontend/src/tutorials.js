@@ -4,6 +4,7 @@ import {
   other,
   playedCount,
   playInHistory,
+  positionKey,
   winningSquares,
 } from './game.js';
 
@@ -95,19 +96,25 @@ const SUMMARIES = {
  * something the engine disagrees with without that test failing.
  */
 export const TUTORIALS = [
-  ...facts.map((fact) => ({
-    id: fact.id,
-    name: NAMES[fact.id],
-    summary: SUMMARIES[fact.id],
-    mark: 'X',
-    line: fact.line,
-    punish: fact.punish,
-    losing: fact.losing,
-    safe: fact.safe,
-    steps: steps(fact.line, NOTES[fact.id]),
-    practice: PRACTICE[fact.id],
-    rules: null,
-  })),
+  ...facts.map((fact) => {
+    const walkthrough = steps(fact.line, NOTES[fact.id]);
+    return {
+      id: fact.id,
+      name: NAMES[fact.id],
+      summary: SUMMARIES[fact.id],
+      mark: 'X',
+      line: fact.line,
+      punish: fact.punish,
+      losing: fact.losing,
+      safe: fact.safe,
+      steps: walkthrough,
+      // The position with the trap set, keyed by shape so a game that met it
+      // rotated still matches. The last step is that position by construction.
+      trapKey: positionKey(walkthrough.at(-1).board),
+      practice: PRACTICE[fact.id],
+      rules: null,
+    };
+  }),
   {
     id: 'going-second',
     name: 'Going second',
@@ -119,6 +126,7 @@ export const TUTORIALS = [
     losing: [],
     safe: [],
     steps: [],
+    trapKey: null,
     practice: null,
     rules: [
       'If they take a corner, take the middle or lose. The centre is the only square that does not lose.',
@@ -195,6 +203,51 @@ export function expectedMove(board, tutorial) {
       (cell, index) => cell === 'O' && index !== tutorial.line[1],
     );
     return tutorial.punish[String(theirs)] ?? null;
+  }
+  return null;
+}
+
+/**
+ * The tutorial explaining a loss, when the player walked into a taught trap.
+ *
+ * Three things must hold: the human lost, a move of theirs was flagged as an
+ * outcome-changing mistake, and the position they played it in was one of the
+ * taught traps under any rotation or reflection.
+ *
+ * Only one ply can ever match — a trap position holds exactly three marks — but
+ * the walk is written generally rather than hardcoding ply 4, so a longer
+ * tutorial line would not break it silently.
+ *
+ * @param {object} game - The finished game.
+ * @param {Array<Array<'X' | 'O' | null>>} game.history - Every position, from
+ *   the empty board.
+ * @param {Array<{ply: number, mistake: object|null}>} game.records - One entry
+ *   per human move.
+ * @param {'X' | 'O' | null} game.humanMark - The human's mark, null in hotseat.
+ * @param {'X' | 'O' | null} game.winner - Who won, or null if nobody did.
+ * @returns {{tutorial: object, ply: number, rotated: boolean} | null} The
+ *   tutorial to offer, which ply lost it, and whether the board was turned
+ *   relative to the way the tutorial teaches it.
+ */
+export function findTrapLoss({ history, records, humanMark, winner }) {
+  if (!humanMark || !winner || winner === humanMark) {
+    return null;
+  }
+  for (const record of records) {
+    const before = record.mistake ? history[record.ply - 1] : null;
+    if (!before || nextPlayer(before) !== humanMark) {
+      continue;
+    }
+    const key = positionKey(before);
+    const tutorial = TUTORIALS.find((entry) => entry.trapKey === key);
+    if (tutorial) {
+      const taught = tutorial.steps.at(-1).board;
+      return {
+        tutorial,
+        ply: record.ply,
+        rotated: !before.every((cell, index) => cell === taught[index]),
+      };
+    }
   }
   return null;
 }

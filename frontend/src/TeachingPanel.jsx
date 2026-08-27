@@ -41,6 +41,8 @@ function TeachingPanel({
   humanMark,
   records,
   onGoTo,
+  trapOffer,
+  onLearnTrap,
 }) {
   // Game.jsx already renders the authoritative "Analysis unavailable" alert
   // above this panel, so on error the panel stays silent rather than also
@@ -121,6 +123,24 @@ function TeachingPanel({
             {unjudged} move{unjudged === 1 ? '' : 's'} played before the
             analysis arrived and could not be checked.
           </p>
+        )}
+        {/* The lesson for the trap they just lost to, offered where the
+            explanation of what went wrong already lives — so it reaches
+            someone already reading about their mistake, and nobody else. */}
+        {trapOffer && (
+          <div className="border-top mt-3 pt-3">
+            <p className="mb-2">
+              That was the <strong>{trapOffer.tutorial.name}</strong> trap
+              {trapOffer.rotated ? ', turned round' : ''}.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => onLearnTrap(trapOffer.tutorial.id)}
+            >
+              See how it works
+            </button>
+          </div>
         )}
       </div>
     );

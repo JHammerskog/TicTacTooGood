@@ -67,13 +67,31 @@ export default function TutorialWatch({ tutorial, muted, onFinish }) {
         teaching="off"
         highlight={highlightsFor(tutorial, step, last)}
       />
-      <div className="message-slot mx-auto mt-3 text-start">
-        <p aria-live="polite">{current.note}</p>
-        {last && (
-          <p className="text-body-secondary small mb-0">
-            Red squares lose for them. Green squares survive.
-          </p>
-        )}
+      {/* Every note is rendered into the same grid cell with only the current
+          one visible, so this block is always as tall as THIS tutorial's
+          longest note and the controls below never move as you step through.
+          Reserving the exact height beats guessing a min-height: Centre first's
+          last note is 386 characters and its neighbours are under 140, which is
+          an 85px jump if the block is left to size itself. The legend is
+          reserved the same way rather than appearing on the last step only. */}
+      <div className="message-slot message-slot-wide mx-auto mt-3 text-start">
+        <div className="note-stack" aria-live="polite">
+          {tutorial.steps.map((entry, index) => (
+            <p
+              key={index}
+              className="tutorial-note"
+              style={{ visibility: index === step ? 'visible' : 'hidden' }}
+            >
+              {entry.note}
+            </p>
+          ))}
+        </div>
+        <p
+          className="text-body-secondary mb-0"
+          style={{ visibility: last ? 'visible' : 'hidden' }}
+        >
+          Red squares lose for them. Green squares survive.
+        </p>
       </div>
       {/* The walkthrough only moves when the reader presses Forward, so this
           is the one control that has to be obvious. Forward carries the solid
