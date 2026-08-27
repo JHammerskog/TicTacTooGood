@@ -12,9 +12,17 @@ from solver import analyse_moves
 
 app = Flask(__name__)
 
-# One generator for the process, seeded from the OS. The opponent's randomness
-# is a gameplay detail, not a security boundary.
-_RNG = random.Random()
+# A board is nine cells and an opponent name; the largest legal request is a
+# couple of hundred bytes. Without a cap Flask will read and parse a body of
+# any size, so one client can spend the server's memory on nothing.
+app.config["MAX_CONTENT_LENGTH"] = 4096
+
+# SystemRandom rather than Random: this one generator is shared by every
+# request, Flask's server is threaded, and random.Random carries mutable state
+# that is not documented as safe for concurrent use — two players moving at the
+# same moment could draw the same number. SystemRandom keeps no state, going to
+# os.urandom per call. The opponent only asks it for `choice` and `random`.
+_RNG = random.SystemRandom()
 
 
 def _first_problem(error: ValidationError) -> str:
@@ -85,4 +93,6 @@ def analyse() -> tuple[Response | dict[str, object], int]:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Loopback: debug=True serves the interactive debugger, which is a remote
+    # code execution surface for anyone who can reach the port.
+    app.run(host="127.0.0.1", port=5000, debug=True)

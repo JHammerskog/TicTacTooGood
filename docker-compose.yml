@@ -1,8 +1,11 @@
+# Both dev servers are published to the host's loopback only. A bare
+# "5000:5000" binds every interface, putting a development server on the
+# local network — and on a laptop that means whatever café wifi it is on.
 services:
   backend:
     build: ./backend
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     volumes:
       - ./backend:/app
       - /app/.venv
@@ -10,7 +13,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules

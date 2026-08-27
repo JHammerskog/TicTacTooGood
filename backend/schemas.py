@@ -29,6 +29,15 @@ class AnalyseRequest(BaseModel):
     def check_reachable(cls, board: list[CellValue]) -> list[CellValue]:
         """Reject boards that no real game could have produced.
 
+        Three checks, which between them catch every unreachable board this API
+        has any reason to worry about: the move counts, both players holding a
+        line, and play continuing after someone has already won.
+
+        Not caught: one player holding two completed lines that share no cell,
+        which needs an earlier line to have gone unnoticed. It is nonsense the
+        solver handles without complaint, and the check costs more than the
+        input is worth.
+
         Args:
             board: The nine submitted cells.
 
@@ -36,8 +45,8 @@ class AnalyseRequest(BaseModel):
             The board unchanged, if it is reachable.
 
         Raises:
-            ValueError: If the move counts are impossible or both players
-                hold a completed line.
+            ValueError: If the move counts are impossible, both players hold a
+                completed line, or the counts show play continued past a win.
         """
         exes = board.count("X")
         ohs = board.count("O")
@@ -46,8 +55,18 @@ class AnalyseRequest(BaseModel):
                 f"Unreachable board: {exes} X and {ohs} O. X moves first, so the number of X "
                 "must equal the number of O or exceed it by exactly one."
             )
-        if len(winning_marks(tuple(board))) > 1:
+        won = winning_marks(tuple(board))
+        if len(won) > 1:
             raise ValueError("Unreachable board: both players hold a completed line.")
+        if won:
+            # A game stops the moment a line completes, so the winner made the
+            # last move: X wins one mark ahead, O wins level.
+            winner = next(iter(won))
+            if exes != (ohs + 1 if winner == "X" else ohs):
+                raise ValueError(
+                    f"Unreachable board: {winner} holds a completed line, so the game ended "
+                    f"on that move — but {exes} X and {ohs} O show play carried on."
+                )
         return board
 
 

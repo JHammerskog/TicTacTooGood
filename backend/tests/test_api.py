@@ -127,3 +127,35 @@ def test_an_unknown_opponent_is_rejected(client: FlaskClient) -> None:
     )
     assert response.status_code == 400
     assert "opponent" in response.get_json()["error"]
+
+
+def test_an_oversized_body_is_refused_before_it_is_parsed(client: FlaskClient) -> None:
+    # Without MAX_CONTENT_LENGTH a body of any size is read and parsed. Nine
+    # cells never need more than a few hundred bytes.
+    response = client.post(
+        "/api/analyse",
+        data=b'{"board": "' + b"x" * 10_000 + b'"}',
+        content_type="application/json",
+    )
+    assert response.status_code == 413
+
+
+def test_play_continuing_past_a_win_is_rejected(client: FlaskClient) -> None:
+    # X completed the top row on ply 5, so the game ended there — but O has a
+    # sixth mark on the board. The counts alone are legal; the win is what makes
+    # this impossible.
+    response = client.post("/api/analyse", json={"board": cells("XXXOO.O..")})
+    assert response.status_code == 400
+    assert "carried on" in response.get_json()["error"]
+
+
+def test_a_win_on_the_last_move_is_still_accepted(client: FlaskClient) -> None:
+    # The boundary the check above must not cross: every finished game the app
+    # itself submits looks like this.
+    response = client.post("/api/analyse", json={"board": cells("XXXOO....")})
+    assert response.status_code == 200
+    assert response.get_json()["winner"] == "X"
+
+    response = client.post("/api/analyse", json={"board": cells("OOOXX.X..")})
+    assert response.status_code == 200
+    assert response.get_json()["winner"] == "O"
