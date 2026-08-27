@@ -29,10 +29,13 @@ fallible computer, where it works only as often as it really does.
 
 ## Scope
 
-**In Phase 4:** the Learn section; four tutorials (three attacking, one
-defending); the watch phase; the practice phase with a scripted opponent; the
-fallible unlock; completion tracking in `localStorage`; and the `useGameHistory`
-extraction carried from Phase 3 (ruling R10).
+**In Phase 4:** the landing page and the Learn section; four tutorials (three
+attacking, one defending); the watch phase; the practice phase with a scripted
+opponent; the fallible unlock; and the `useGameHistory` extraction carried from
+Phase 3 (ruling R10).
+
+Completion tracking was in this list and was cut during the build. See **The
+unlock**.
 
 **Not in Phase 4:** authoring tutorials in the app, a tutorial editor, more
 than these four, or any backend change (see below).
@@ -164,17 +167,21 @@ its first line. Its subject is not losing.
 1. **If they take a corner, take the middle or lose.** The centre is the only
    square that does not lose.
 2. **If they take the middle, take a corner or lose.** Any of the four.
-3. **Then watch for the traps from Tutorials 1 to 3** — the only positions where
-   nothing needs blocking and you can still lose.
-4. **Follow 1 and 2 and the draw is always there.** You can still throw it later;
-   these rules only get you past the opening.
+3. **If they open on a side, neither rule above covers it.** It is the nastiest
+   case to hold in your head: two of the four corners lose, and so do two of the
+   three remaining sides. The safe set — an adjacent corner, the opposite side,
+   or the centre — is not a rule anyone will remember, so the tutorial says only
+   **take the middle, it is always safe there**, and points at Side first for
+   what happens when you get this wrong.
+4. **Then watch for the traps in the first three lessons** — the only positions
+   where nothing needs blocking and you can still lose.
+5. **Follow the first two rules and the draw is always there.** You can still
+   throw it later; these only get you past the opening.
 
-**The gap, stated rather than hidden.** A *side* opening is covered by neither
-rule 1 nor rule 2, and it is the nastiest case to summarise: against it, two of
-the four corners lose, and so do two of the three remaining sides. The safe set
-— an adjacent corner, the opposite side, or the centre — is not a rule anyone
-will remember. The tutorial says only this: **the middle is always safe there**,
-and points at Tutorial 3 for what happens when you get it wrong.
+The side opening was drafted as prose below the list, on the grounds that it is
+not a rule anyone will remember. It became rule 3 because a reader scanning four
+numbered rules for their opponent's opening finds nothing for a third of the
+board and concludes the list covers it.
 
 **The suggested exercise.** The tutorial ends by telling the player to set
 `Computer plays: X` with the **perfect** opponent and teaching mode on **Every
@@ -183,19 +190,31 @@ existing app is the exercise; no new UI is needed for it.
 
 ## The shape of a tutorial
 
+The facts and the prose are separate files, because only one of them can be
+proved. `tutorials.json` holds what the solver settles; `tutorials.js` holds the
+commentary and assembles the two.
+
 ```js
+// tutorials.json — proved against the solver by backend/tests/test_tutorials.py
+{ id: 'centre-first', line: [4, 0, 8], losing: [1, 3, 5, 7], safe: [2, 6],
+  punish: { 1: 2, 3: 6, 5: 6, 7: 2 } }
+
+// tutorials.js — the assembled tutorial
 {
   id: 'centre-first',
   name: 'Centre first',
   summary: 'The deadliest trap: four of their six replies lose.',
+  mark: 'X',                    // the side the player takes
+  line, losing, safe, punish,   // from the JSON above
   steps: [{ board, note }],     // the watch phase, in order
-  practice: {
-    playerMark: 'X',
-    replies: [0, 1],            // what the opponent plays, in order
-    goal: 'Win from the opening.',
-  },
+  practice: { replies: [0, 1], goal: 'Open in the centre, set the trap, …' },
+  rules: null,                  // Going second sets this instead of practice
 }
 ```
+
+Splitting the two is what lets a backend test fail when the prose claims
+something the engine disagrees with. `mark` sits on the tutorial rather than
+inside `practice` because Going second needs it without having a line to play.
 
 `steps` is a scripted history. That is deliberate: Phase 3's navigation already
 walks an array of boards with a cursor, so the watch phase is that same
@@ -217,39 +236,67 @@ by what perfect play does next, not by what a person does next.
 The player plays the line themselves, from an empty board, as X.
 
 **The opponent is scripted, not played.** It walks into the trap every time,
-because a lesson that fizzles teaches nothing: against the honest fallible
-opponent, Tutorial 1's trap springs 69% of the time and Tutorial 3's only 31%,
-so two attempts in three at Tutorial 3 would end in a quiet draw having
-demonstrated nothing.
+because a lesson that fizzles teaches nothing. Measured against the honest
+fallible opponent over 4,000 games each on 2026-08-26: Centre first springs
+65-67% of the time, Corner first 33%, Side first 29-30%. Two attempts in three
+at Side first would end in a quiet draw having demonstrated nothing.
 
-The opponent plays the first move in `replies` that is still legal. If the
-player leaves the line, it falls back to any free square, and the tutorial
-says which move was expected rather than silently continuing.
+The opponent plays the first move in `replies` that is still legal. Once the
+list is used up it stops being scripted and behaves like a person: it takes a
+win if it has one, otherwise it blocks a win it can see. It fell back to the
+first free square in index order during the build, which meant that after the
+punish created a fork it played some unrelated square and let the player
+complete a line nobody had tried to stop — which made the payoff look fake.
+Blocking one threat is also the honest picture: a fork wins precisely because
+blocking one still loses to the other.
 
-**The engine comes back on.** Once the board is live the player is in a normal
-game, so the teaching dial and slip warnings apply as they do everywhere else.
-The commentary taught the plan; the engine catches a fumbled execution.
+If the player leaves the line, the tutorial says which move was expected rather
+than silently continuing, and the click is accepted rather than refused — being
+told what the line wanted teaches more than a square that will not depress.
+
+**The engine is silent here too**, contrary to the draft of this spec, which
+said it came back on for the practice phase. It does not. After the opponent's
+blunder a star would sit on exactly the square the exercise exists to make the
+player find. The hint above covers the fumbled-execution case instead, and it
+names what the *line* wanted rather than what the solver wants.
 
 ## The unlock
 
-Completing the practice phase records the tutorial's `id` in `localStorage` and
-reveals **"Now try it against a fallible computer"** — which starts an ordinary
-game with `Computer plays` set to the opposing mark and the difficulty on
-fallible. No new game mode; it is the button the existing controls already
-imply.
+Winning the practice reveals **"Now try it against a fallible computer"** —
+which starts an ordinary game with `Computer plays` set to the opposing mark and
+the difficulty on fallible. No new game mode; it is the button the existing
+controls already imply.
+
+**No progress is stored.** This was drafted as a `localStorage` record of each
+completed tutorial's `id`, and was built and then removed: `localStorage` is
+per-browser, not per-person, so the moment this is hosted for more than one
+player a tick means "someone on this machine did it" while claiming to mean
+"you did it". Per-user progress needs accounts and a database, which is a phase
+of its own. The unlock now keys off winning the practice in this session.
 
 This is where the real odds live, and the tutorial should say them: this worked
 every time a moment ago because the opponent was scripted, and it will not now.
 
 ## Placement
 
-A **Learn** section on the start screen, beside the existing "Who are you
-playing?", listing the four tutorials by name with their one-line summary and a
-completion tick. A tutorial is not an opponent, so it does not belong in the
-opponent radio group.
+A **landing page** with two doors: **Learn**, weighted, and **Play a game**,
+quiet. Every game setting moves behind Play.
 
-`App.jsx` gains one screen value. The tutorial screen is its own component; the
-game screen is not modified to accommodate it.
+This was drafted as a Learn section sitting on the start screen beside "Who are
+you playing?". Two things were wrong with it. A tutorial is not an opponent, so
+it does not belong anywhere near the opponent radio group — and a Learn panel
+alongside five settings controls reads as a footnote to the game, when the
+tutorials are the thing most likely to be useful and the game is what you do
+afterwards. Splitting the two apart lets the landing page state that order
+instead of implying the opposite.
+
+Behind Learn, the four tutorials are listed by name and one-line summary, and
+the list says that doing them in order makes the most sense. No completion tick
+— nothing is tracked.
+
+`App.jsx` grows to five screens: `landing | setup | tutorials | tutorial |
+game`. The tutorial screen is its own component; the game screen is not modified
+to accommodate it.
 
 ## Carried debt
 
@@ -280,9 +327,15 @@ For Tutorial 4, that rules 1 and 2 name the only non-losing replies, and that
 the five-trap enumeration still yields five. These are cheap exhaustive sweeps;
 the engine is already tested this way.
 
-Frontend: `game.js` gains the tutorial lookup and the scripted-opponent choice,
-both pure and unit-tested. The screens are verified in the browser as in
-Phases 2b and 3.
+Those sweeps live in `backend/tests/test_tutorials.py`, which reads
+`frontend/src/tutorials.json` directly — so the JSON is the one file that cannot
+be edited without running the backend suite.
+
+Frontend: `tutorials.js` holds the tutorial lookup, the scripted-opponent choice
+and the expected-move helper, all pure and unit-tested in `game.test.js`
+(`game.js` keeps the board rules and gains `winningSquares`, which the
+scripted opponent and the practice highlight both need). The screens are
+verified in the browser as in Phases 2b and 3.
 
 ## Out of scope
 
