@@ -12,6 +12,7 @@ import {
   lastMoveIndex,
   moveLabels,
   nextPlayer,
+  other,
   playedCount,
   playInHistory,
   RULE_TEXT,
@@ -569,7 +570,7 @@ test('the scripted opponent takes its own win ahead of blocking', () => {
 test('the scripted opponent never leaves a win of ours unanswered', () => {
   for (const tutorial of TUTORIALS.filter((t) => t.practice)) {
     const board = Array(9).fill(null);
-    const theirs = tutorial.mark === 'X' ? 'O' : 'X';
+    const theirs = other(tutorial.mark);
     while (!calculateWinner(board) && board.includes(null)) {
       const mine = playedCount(board) % 2 === 0;
       if (mine) {

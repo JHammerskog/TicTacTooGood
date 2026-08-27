@@ -40,7 +40,7 @@ function Board({
   winningLine,
   lastMove,
   disabled,
-  onPlay,
+  onPlay = () => {},
   moves = null,
   teaching = 'off',
   hoveredIndex = null,
@@ -107,7 +107,18 @@ function Board({
           key={index}
           type="button"
           className={cellClass(index)}
-          onClick={() => onPlay(index)}
+          onClick={() => {
+            // The gate lives here, not on the button's `disabled` attribute:
+            // a disabled button leaves the tab order, and a board you cannot
+            // reach with a keyboard while reviewing is worse than one whose
+            // cells are announced as unavailable. `aria-disabled` says so,
+            // and this says it to the mouse. Consumers used to repeat this
+            // check themselves, which meant `disabled` announced a state it
+            // did not enforce.
+            if (!disabled && !square) {
+              onPlay(index);
+            }
+          }}
           onMouseEnter={() => onHover(index)}
           onMouseLeave={() => onHover(null)}
           onFocus={() => onHover(index)}

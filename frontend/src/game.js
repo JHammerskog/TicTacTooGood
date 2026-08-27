@@ -71,6 +71,22 @@ export function isOver(squares) {
   return Boolean(calculateWinner(squares)) || isDraw(squares);
 }
 
+/**
+ * The other mark. The backend calls this `game.opponent`; the word is avoided
+ * here because "opponent" already names a difficulty setting in this app.
+ *
+ * @param {'X' | 'O'} mark - Either mark.
+ * @returns {'X' | 'O'} The other one.
+ */
+export const other = (mark) => (mark === 'X' ? 'O' : 'X');
+
+/**
+ * How long a computer or scripted opponent appears to think, so its move reads
+ * as a move rather than as the board changing under the player's hand. Shared
+ * so the game and the tutorial exercise feel like the same opponent.
+ */
+export const THINKING_MS = 400;
+
 /** Human names for the nine cells, in board order. */
 export const CELL_NAMES = [
   'top left',
@@ -189,7 +205,8 @@ export const TIED_MESSAGE = {
  *
  * @param {'X' | 'O' | null} winnerMark - The winner, or null for a draw.
  * @param {boolean} vsComputer - Whether one side is the computer.
- * @param {'X' | 'O'} humanMark - The mark the human is playing.
+ * @param {'X' | 'O' | null} humanMark - The mark the human is playing, or
+ *   null in hotseat, where both players are human and it means nothing.
  * @returns {string} A short sentence naming the result.
  */
 export function describeResult(winnerMark, vsComputer, humanMark) {

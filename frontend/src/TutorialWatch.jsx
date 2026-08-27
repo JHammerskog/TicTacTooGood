@@ -5,7 +5,7 @@ import { playPencil } from './sound.js';
 /**
  * Highlights for one step of a walkthrough.
  *
- * Before the trap is set, one yellow square says where the move the commentary
+ * Before the trap is set, one orange square says where the move the commentary
  * is describing will go. Without it the board lags the words by a turn: the
  * note says "you take the centre" while the board still shows nothing.
  *
@@ -40,9 +40,10 @@ function highlightsFor(tutorial, step, last) {
  * commentary. The highlights above are the tutorial's own voice, not the
  * engine's.
  *
- * `lastMove` is deliberately not passed. Its yellow would collide with the
- * yellow that now means "play here", and in a walkthrough where to go next
- * matters more than where you have been — the note already says that.
+ * `lastMove` is deliberately not passed. In a walkthrough where to go next
+ * matters more than where you have been, and the note already says which move
+ * was just played. (This once also avoided a colour clash with "play here";
+ * that highlight is orange now, so only the first reason is left.)
  */
 export default function TutorialWatch({ tutorial, muted, onFinish }) {
   const [step, setStep] = useState(0);
@@ -63,7 +64,6 @@ export default function TutorialWatch({ tutorial, muted, onFinish }) {
         winningLine={null}
         lastMove={null}
         disabled
-        onPlay={() => {}}
         teaching="off"
         highlight={highlightsFor(tutorial, step, last)}
       />

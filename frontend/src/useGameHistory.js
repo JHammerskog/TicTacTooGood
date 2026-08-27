@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { lastMoveIndex, moveLabels, playInHistory } from './game.js';
+import { lastMoveIndex, playInHistory } from './game.js';
 
 /** Gap between plies while replaying, so a jump reads as a sequence. */
 const REPLAY_STEP_MS = 180;
@@ -15,9 +15,13 @@ const REPLAY_STEP_MS = 180;
  * @param {() => void} [onStep] - Called once per ply actually
  *   advanced or rewound, including each ply of a replay. Used for the pencil
  *   sound; a component with nothing to do per step can omit it.
+ * Move labels are deliberately not returned: only the game screen shows a move
+ * list, and only while it is expanded, so `moveLabels(history)` belongs at that
+ * call site rather than being rebuilt here on every render of every consumer.
+ *
  * @returns {{history: Array<Array<string|null>>, cursor: number,
  *   squares: Array<string|null>, lastMove: number|null,
- *   labels: string[], atTip: boolean, replaying: boolean,
+ *   atTip: boolean, replaying: boolean,
  *   playAt: (index: number, mark: string) => void,
  *   goTo: (ply: number) => void, reset: () => void}}
  */
@@ -78,7 +82,6 @@ export function useGameHistory(onStep) {
     cursor,
     squares,
     lastMove: lastMoveIndex(history[cursor - 1], squares),
-    labels: moveLabels(history),
     atTip,
     replaying,
     playAt,

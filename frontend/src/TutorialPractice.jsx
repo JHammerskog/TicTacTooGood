@@ -7,20 +7,20 @@ import {
   calculateWinner,
   isOver,
   nextPlayer,
+  THINKING_MS,
   winningSquares,
 } from './game.js';
 import { playPencil } from './sound.js';
-
-/** How long the opponent appears to think, matching the game screen. */
-const THINKING_MS = 400;
 
 /**
  * The player runs the line themselves.
  *
  * The opponent is scripted rather than played. Against the honest fallible
- * opponent this trap springs between 31% and 69% of the time depending on the
- * lesson, so most attempts would end in a quiet draw having demonstrated
- * nothing. The real odds belong in the game that unlocks afterwards, not here.
+ * opponent a trap springs well under half the time on two of the three lessons,
+ * so most attempts would end in a quiet draw having demonstrated nothing. The
+ * real odds belong in the game that unlocks afterwards, and Tutorial.jsx is
+ * where they are quoted — nothing measures them, so one hand-written figure is
+ * one too many to keep in step.
  */
 export default function TutorialPractice({ tutorial, muted, onWin }) {
   const [hint, setHint] = useState(null);
@@ -62,11 +62,15 @@ export default function TutorialPractice({ tutorial, muted, onWin }) {
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [won]);
 
+  // What the line calls for in this position. Computed once per render and used
+  // twice: to highlight the square, and to name it in the hint if the player
+  // presses somewhere else. The board cannot change between those two, because
+  // a click is what changes it.
+  const wanted = expectedMove(squares, tutorial);
+
+  // Only reachable for a legal click: `Board` refuses an occupied cell and
+  // everything the `disabled` prop below covers.
   function handleCellClick(index) {
-    if (over || theirTurn || squares[index] !== null) {
-      return;
-    }
-    const wanted = expectedMove(squares, tutorial);
     // The hint names the move rather than refusing the click: being told what
     // the line wanted teaches more than a square that will not accept a press,
     // and the player can always start over.
@@ -78,17 +82,18 @@ export default function TutorialPractice({ tutorial, muted, onWin }) {
     playAt(index, tutorial.mark);
   }
 
-  // The same yellow guidance the walkthrough gives, carried into the exercise.
+  // The same orange guidance the walkthrough gives, carried into the exercise.
   // `expectedMove` covers the opening, the trap and the punish; it returns null
   // at the last move because the punish is a fork and two squares win, so those
   // are highlighted instead. Nothing is shown while it is their turn.
-  const guide = over || theirTurn ? [] : nextSquares();
+  // `!== null` rather than a truthiness test: cell 0 is a real square.
+  const guide =
+    over || theirTurn
+      ? []
+      : wanted !== null
+        ? [wanted]
+        : winningSquares(squares, tutorial.mark);
   const highlight = Object.fromEntries(guide.map((index) => [index, 'next']));
-
-  function nextSquares() {
-    const wanted = expectedMove(squares, tutorial);
-    return wanted === null ? winningSquares(squares, tutorial.mark) : [wanted];
-  }
 
   let status;
   if (won) {

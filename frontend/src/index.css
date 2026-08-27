@@ -62,7 +62,15 @@ body {
 }
 
 /* Annotation tints. Bootstrap's subtle pairs are theme-aware, like the
-   last-move yellow above. Empty cells only, so these never fight it. */
+   last-move yellow above. Empty cells only, so these never fight it.
+
+   These six classes are never written out in the JSX: Board.jsx builds them as
+   `board-cell-${move.outcome}` (win/draw/loss) and `board-cell-${highlight[i]}`
+   (next/good/bad), so grepping for a name lands here and nowhere else. Both
+   value sets are closed — outcomes come from the API's schema, highlights from
+   HIGHLIGHT_TEXT — so a name that reaches here always has a rule waiting. Add a
+   seventh outcome or highlight and it needs a block below or it tints
+   nothing, silently. */
 .board-cell.board-cell-win {
   background: var(--bs-success-bg-subtle);
   border-color: var(--bs-success-border-subtle);

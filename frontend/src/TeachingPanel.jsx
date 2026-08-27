@@ -73,7 +73,11 @@ function TeachingPanel({
         {slips.length === 0 ? (
           unjudged === 0 ? (
             <p className="text-body-secondary mb-0">
-              No mistakes. You played it out correctly.
+              {/* `records` holds every move by both sides, so in hotseat this
+                  review belongs to two people and cannot say "you". */}
+              {vsComputer
+                ? 'No mistakes. You played it out correctly.'
+                : 'No mistakes. Both sides played it out correctly.'}
             </p>
           ) : (
             // Nothing checked at all: the paragraph below already says so, and

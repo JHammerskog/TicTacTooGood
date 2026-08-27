@@ -1,6 +1,7 @@
 import facts from './tutorials.json' with { type: 'json' };
 import {
   nextPlayer,
+  other,
   playedCount,
   playInHistory,
   winningSquares,
@@ -164,7 +165,7 @@ export function scriptedReply(board, replies) {
     return scripted;
   }
   const mine = nextPlayer(board);
-  const theirs = mine === 'X' ? 'O' : 'X';
+  const theirs = other(mine);
   const [win] = winningSquares(board, mine);
   const [block] = winningSquares(board, theirs);
   return win ?? block ?? board.findIndex((cell) => cell === null);

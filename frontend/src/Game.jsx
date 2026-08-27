@@ -15,15 +15,12 @@ import {
   isOver,
   judgeMove,
   lastMoveIndex,
+  moveLabels,
   nextPlayer,
+  other,
   RULE_TEXT,
+  THINKING_MS,
 } from './game.js';
-
-/** The other mark. Only meaningful when the computer is playing one of them. */
-const other = (mark) => (mark === 'X' ? 'O' : 'X');
-
-/** How long the computer appears to think, so its move reads as a move. */
-const THINKING_MS = 400;
 
 function Game({ settings, onChange, onQuit, muted }) {
   const [hoveredIndex, setHoveredIndex] = useState(null);
@@ -46,7 +43,6 @@ function Game({ settings, onChange, onQuit, muted }) {
     cursor,
     squares,
     lastMove,
-    labels,
     atTip,
     replaying,
     playAt: playInGame,
@@ -70,7 +66,11 @@ function Game({ settings, onChange, onQuit, muted }) {
   // whether the computer answers now or waits. That is what makes switching it
   // on mid-game well defined.
   const vsComputer = settings.computerMark !== null;
-  const humanMark = other(settings.computerMark);
+  // null in hotseat, where both players are human and neither owns the
+  // question. `other(null)` answered 'X', which every reader below happens
+  // to sit behind a `vsComputer` check — a wrong value waiting for the first
+  // caller that forgets.
+  const humanMark = vsComputer ? other(settings.computerMark) : null;
   const isComputerTurn =
     vsComputer && !over && player === settings.computerMark;
   const teachingOn = settings.teaching !== 'off';
@@ -109,27 +109,18 @@ function Game({ settings, onChange, onQuit, muted }) {
   }
 
   // The board's click handler, as opposed to `playAt`, which the computer's
-  // effect also calls. A cell is aria-disabled during the computer's turn and
-  // after the game ends, but that does not stop a click, so the turn is
-  // enforced here. The occupied/over checks duplicate `playAt`'s deliberately:
-  // this function records and judges the move *before* delegating, so it has to
-  // reject an impossible move itself rather than rely on being refused later.
-  // `replaying` is checked too: the board reads aria-disabled during a replay
-  // animation, which does not stop a click either, and a click accepted there
-  // would branch the history mid-walk and destroy the moves being reviewed.
+  // effect also calls. Only reachable for a legal click: `Board` refuses an
+  // occupied cell and anything the `disabled` prop below covers, which is why
+  // this records and judges before delegating without re-checking first.
   //
-  // The computer's turn is only protected AT THE TIP, where taking its move
-  // would be stealing it. Away from the tip you are branching a new line, and
-  // being locked out of half the positions in the game — every other ply — for
-  // no reason you can see is worse than letting you play both sides of a line
-  // you are exploring. The computer picks the line up again from the new tip.
+  // What `disabled` covers, and why: the game being over; a replay in flight,
+  // where an accepted click would branch the history mid-walk and destroy the
+  // moves being reviewed; and the computer's turn AT THE TIP, where taking its
+  // move would be stealing it. Away from the tip you are branching a new line,
+  // and being locked out of half the positions in the game — every other ply —
+  // for no reason you can see is worse than letting you play both sides of a
+  // line you are exploring. The computer picks the line up from the new tip.
   function handleCellClick(index) {
-    if (over || replaying || squares[index] !== null) {
-      return;
-    }
-    if (atTip && isComputerTurn) {
-      return;
-    }
     const mistake = judgeMove(analysis, index);
     setRecords((previous) => [
       ...previous.filter((record) => record.ply < cursor + 1),
@@ -281,7 +272,11 @@ function Game({ settings, onChange, onQuit, muted }) {
             {showMoves ? 'Hide moves' : `Moves (${history.length - 1})`}
           </button>
           {showMoves && (
-            <MoveList labels={labels} cursor={cursor} onJump={goTo} />
+            <MoveList
+              labels={moveLabels(history)}
+              cursor={cursor}
+              onJump={goTo}
+            />
           )}
         </div>
         <div className="col-lg-6">

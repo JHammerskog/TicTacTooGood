@@ -5,6 +5,7 @@ import LearnList from './LearnList.jsx';
 import StartScreen from './StartScreen.jsx';
 import ThemeControls from './ThemeControls.jsx';
 import Tutorial from './Tutorial.jsx';
+import { other } from './game.js';
 
 const DEFAULT_SETTINGS = {
   // Which mark the computer plays, or null for hotseat. `difficulty` is kept
@@ -99,13 +100,19 @@ function App() {
           onBack={() => setScreen('landing')}
         />
       ) : screen === 'tutorial' ? (
+        // A changed `key` makes React remount rather than re-render, so
+        // `phase` and `won` reset with the tutorial. Only the index routes
+        // between tutorials today, which unmounts anyway — but a "next
+        // tutorial" link would otherwise open the next lesson already in its
+        // practice phase with the unlock showing.
         <Tutorial
+          key={tutorialId}
           id={tutorialId}
           muted={muted}
           onPlayForReal={(playerMark) => {
             setSettings((previous) => ({
               ...previous,
-              computerMark: playerMark === 'X' ? 'O' : 'X',
+              computerMark: other(playerMark),
               difficulty: 'fallible',
             }));
             setScreen('game');
