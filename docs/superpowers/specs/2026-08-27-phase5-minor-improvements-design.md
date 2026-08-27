@@ -41,13 +41,15 @@ scratch rather than treated as a continuation of this sequence.
 2. **A new README hero image** — the trap step, not the end-of-game review.
 3. **Readable tutorial prose** — line length, size and contrast for the
    commentary, which is the lesson rather than a caption.
+4. **An opponent that actually sets the traps** — added after the first three
+   shipped, because item 1 turned out to be nearly unreachable in play.
 
-**Not in Phase 5:** any backend behaviour change (one test is added, no endpoint
-moves); stored progress or accounts; re-orienting tutorials; rewriting any
-tutorial copy. Item 3 changes how the words are set, never the words.
+**Not in Phase 5:** stored progress or accounts; re-orienting tutorials;
+rewriting any tutorial copy. Item 3 changes how the words are set, never the
+words. Item 4 is the phase's only change to backend behaviour; there is still no
+API change.
 
-Items 2 and 3 are independent of item 1 and of each other. Nothing here needs to
-land in order.
+The four are independent of each other. Nothing here needs to land in order.
 
 ---
 
@@ -323,3 +325,80 @@ same y across all four steps of every tutorial.
 
 Rewriting any tutorial copy. A custom font. A type scale. Changing the board's
 own sizing, which is `clamp()`-based and already responsive.
+
+---
+
+# 4. An opponent that actually sets the traps
+
+Item 1 shipped and could not be reached. Over twenty games against the perfect
+computer produced no taught trap at all, because the opponent picked uniformly
+among the optimal moves and the trap-setting move is only one of them.
+
+Measured against a player who replies soundly: a taught trap was **available**
+at ply 3 in 77% of games, but the computer took it in only **14%**. The app was
+teaching three traps a player would essentially never meet while playing it.
+
+## The bias
+
+`opponent.TRAP_BIAS` — 0.75 for perfect, 0.25 for fallible. When a legal move
+completes a taught trap, take it with that probability.
+
+For perfect the candidates are drawn **only from moves already marked `best`**,
+which is what keeps perfect play perfect: every trap-setting move is optimal
+anyway, because the trap position draws under perfect play. The bias picks which
+draw to steer for, never whether to draw. `test_perfect_only_ever_plays_an_optimal_move`
+already swept every reachable position for this and still does.
+
+For fallible the step sits below win and block, so a forced move always outranks
+it.
+
+**The observed rate runs above the configured one**, and should. Fallible's
+fallback guesses uniformly over every free cell, so it stumbles onto the trap
+about 1 time in 7 even when the bias did not fire: 0.25 becomes roughly 0.35.
+Excluding the trap from that fallback would make the number exact and the
+opponent worse — it is the mistake the original policy made with optimal moves,
+where refusing to guess them meant it answered a centre opening with a side in
+every single game.
+
+## Why nothing guards the second player
+
+A taught trap holds two X and one O with O to move, so the move that completes
+one is always the third of the game, and no move by O can ever produce one. A
+computer playing second therefore cannot trigger the bias. This falls out of the
+shape rather than being enforced, and a test says so.
+
+For the same reason the fall-in rates quoted in `Tutorial.jsx` are untouched:
+those describe the player setting a trap and the fallible computer walking into
+it — the computer as victim, not trapper.
+
+## Where the keys live
+
+`opponent.TRAP_KEYS` is a hand-written copy of the three canonical trap
+positions, because the backend image contains only `backend/` and cannot read
+`frontend/src/tutorials.json` at runtime. `test_tutorials.py` pins the constant
+against that file, so changing a tutorial's line fails the suite rather than
+silently leaving the computer steering for a position nobody is taught.
+
+The symmetry helpers moved from that test file into `game.py` as `SYMMETRIES`
+and `canonical`, since shipping code needs them now. That removed the test's
+private copy rather than adding a second one.
+
+## Result
+
+Games reaching a taught trap, against a player who replies soundly:
+
+| | Before | After |
+|---|---|---|
+| perfect | 14% | **62%** |
+| fallible | 11% | **31%** |
+
+All three tutorials still occur. Corner first dominates for perfect, at 35% of
+games, because four of the nine openings are corners and a corner opening can
+always be turned into a trap.
+
+## Testing
+
+`test_opponent.py`: the rates, as bands rather than points so they survive a
+change of RNG; that perfect and fallible remain distinguishable; and that the
+bias cannot fire for a second-playing computer. `test_tutorials.py`: that
+`TRAP_KEYS` matches the tutorial content.

@@ -13,6 +13,66 @@ WINNING_LINES: tuple[tuple[int, int, int], ...] = (
 )
 
 
+# One quarter turn and one left-to-right mirror, as index permutations. Composing
+# them four times over generates the square's eight symmetries.
+_ROTATION = (6, 3, 0, 7, 4, 1, 8, 5, 2)
+_MIRROR = (2, 1, 0, 5, 4, 3, 8, 7, 6)
+
+
+def _relabel(permutation: tuple[int, ...], indices: tuple[int, ...]) -> tuple[int, ...]:
+    """Apply a permutation to a set of index labels.
+
+    Args:
+        permutation: Where each new position reads its label from.
+        indices: Nine index labels, in row-major order.
+
+    Returns:
+        The relabelled indices.
+    """
+    return tuple(indices[i] for i in permutation)
+
+
+def _build_symmetries() -> tuple[tuple[int, ...], ...]:
+    """Build the square's eight symmetries as index permutations.
+
+    Four rotations, each also mirrored, cover every way a board can be
+    relabelled without changing the game it represents.
+
+    Returns:
+        Eight permutations of range(9), each usable to reindex a board.
+    """
+    symmetries: list[tuple[int, ...]] = []
+    indices = tuple(range(9))
+    for _ in range(4):
+        symmetries.append(indices)
+        symmetries.append(_relabel(_MIRROR, indices))
+        indices = _relabel(_ROTATION, indices)
+    return tuple(symmetries)
+
+
+SYMMETRIES = _build_symmetries()
+
+
+def canonical(board: Board) -> str:
+    """A key identifying a position's shape rather than its exact cells.
+
+    Two boards that are rotations or reflections of one another share a key, so
+    a position met turned on its side still matches the one it is a copy of.
+    Marks are compared as they are, not by role.
+
+    The frontend's `positionKey` in game.js computes the same strings; the
+    backend suite pins the ones both sides rely on.
+
+    Args:
+        board: Nine cells.
+
+    Returns:
+        The lexicographically smallest of the board's eight rotated or mirrored
+        images, as nine characters with "." for an empty cell.
+    """
+    return min("".join(board[i] or "." for i in symmetry) for symmetry in SYMMETRIES)
+
+
 def winner(board: Board) -> tuple[str, tuple[int, int, int]] | None:
     """Find the winner of a board, if there is one.
 

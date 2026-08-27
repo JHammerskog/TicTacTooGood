@@ -11,7 +11,8 @@ from typing import Any
 
 import pytest
 
-from game import Board, legal_moves, play, winner
+from game import Board, canonical, legal_moves, play, winner
+from opponent import TRAP_KEYS
 from rules import name_move
 from solver import analyse_moves, evaluate
 
@@ -141,85 +142,6 @@ def test_the_middle_is_always_safe_against_a_side_opening() -> None:
         assert verdict.outcome != "loss"
 
 
-def _rotate(indices: list[int]) -> list[int]:
-    """Rotate a 3x3 grid's index labels 90 degrees.
-
-    Args:
-        indices: Nine index labels, in row-major order.
-
-    Returns:
-        The same nine labels, rotated one quarter turn.
-    """
-    return [
-        indices[6],
-        indices[3],
-        indices[0],
-        indices[7],
-        indices[4],
-        indices[1],
-        indices[8],
-        indices[5],
-        indices[2],
-    ]
-
-
-def _flip(indices: list[int]) -> list[int]:
-    """Mirror a 3x3 grid's index labels left-to-right.
-
-    Args:
-        indices: Nine index labels, in row-major order.
-
-    Returns:
-        The same nine labels, mirrored horizontally.
-    """
-    return [
-        indices[2],
-        indices[1],
-        indices[0],
-        indices[5],
-        indices[4],
-        indices[3],
-        indices[8],
-        indices[7],
-        indices[6],
-    ]
-
-
-def _build_symmetries() -> list[list[int]]:
-    """Build the square's eight symmetries as index permutations.
-
-    Four rotations, each also mirrored, cover every way a board can be
-    relabelled without changing the game it represents.
-
-    Returns:
-        Eight permutations of range(9), each usable to reindex a board.
-    """
-    symmetries: list[list[int]] = []
-    indices = list(range(9))
-    for _ in range(4):
-        symmetries.append(indices[:])
-        symmetries.append(_flip(indices))
-        indices = _rotate(indices)
-    return symmetries
-
-
-_SYMMETRIES = _build_symmetries()
-
-
-def _canonical(board: Board) -> str:
-    """A symmetry-independent key for a board.
-
-    Args:
-        board: Nine cells.
-
-    Returns:
-        The lexicographically smallest of the board's eight rotated/mirrored
-        images, as a 9-character string ("." for an empty cell) — so two
-        positions that are reflections of one another map to the same key.
-    """
-    return min("".join(board[i] or "." for i in symmetry) for symmetry in _SYMMETRIES)
-
-
 def _find_traps() -> list[list[int]]:
     """Walk the whole game tree and collect every "trap" position.
 
@@ -258,9 +180,9 @@ def _find_traps() -> list[list[int]]:
             names = {name_move(board, result.index) for result in results}
             losing = [result.index for result in results if result.outcome == "loss"]
             if "block" not in names and losing:
-                canonical = _canonical(board)
-                if canonical not in seen_positions:
-                    seen_positions.add(canonical)
+                key = canonical(board)
+                if key not in seen_positions:
+                    seen_positions.add(key)
                     traps.append(losing)
 
         if plies == 1:
@@ -302,10 +224,22 @@ def test_the_trap_positions_have_three_distinct_keys() -> None:
     matching the wrong tutorial to a player's loss.
     """
     keys = {
-        tutorial["id"]: _canonical(trap_position(tutorial["line"])) for tutorial in load_tutorials()
+        tutorial["id"]: canonical(trap_position(tutorial["line"])) for tutorial in load_tutorials()
     }
     assert keys == {
         "centre-first": "..O.X.X..",
         "corner-first": "..X.O.X..",
         "side-first": ".....X.XO",
+    }
+
+
+def test_the_opponent_aims_at_the_traps_the_tutorials_teach() -> None:
+    """`opponent.TRAP_KEYS` is a hand-written copy of what the tutorials teach,
+    because the backend image does not contain the frontend's tutorials.json.
+    This is what stops the two drifting: change a tutorial's line and the
+    computer would keep steering for a position nobody is taught, silently, if
+    not for this.
+    """
+    assert TRAP_KEYS == {
+        canonical(trap_position(tutorial["line"])) for tutorial in load_tutorials()
     }
