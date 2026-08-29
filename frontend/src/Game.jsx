@@ -223,9 +223,7 @@ function Game({
     <div className="text-center">
       <h1 className="mb-1">TicTacTooGood</h1>
       <p className="text-body-secondary small mb-3">
-        {vsComputer
-          ? `vs Computer — ${settings.difficulty} · you are ${humanMark}`
-          : 'Hotseat'}
+        {vsComputer ? `vs Computer — ${settings.difficulty}` : 'Hotseat'}
       </p>
       <p className="fs-4 mb-4" aria-live="polite">
         {status}

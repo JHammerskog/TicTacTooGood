@@ -15,6 +15,14 @@ is over.
 
 ![The Centre first tutorial with its trap set: four red squares where the opponent's reply loses, two green where it survives, and the note explaining why a player looking for a block sees nothing to do](docs/screenshot.png)
 
+Then practise it against the computer. Pick a perfect opponent or a fallible
+one, hand it either mark or switch it off mid-game, and it answers while the
+solver keeps score of you: the star marks the strongest square and names the
+pattern, the moment you throw the win it says so and offers the move back, and
+when the game ends it tells you whether you played it out cleanly.
+
+![A won game against the fallible computer: the winning diagonal struck through, the player's own last move highlighted, and a panel confirming the win with no mistakes to review](docs/screenshot-computer.png)
+
 ## Quick start
 
 With [Docker](https://docs.docker.com/get-docker/):
