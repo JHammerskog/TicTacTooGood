@@ -10,7 +10,14 @@ from rules import name_move
 from schemas import AnalyseRequest, AnalyseResponse, MoveAnalysis
 from solver import analyse_moves
 
-app = Flask(__name__)
+# In production one service serves both halves of the app: the Dockerfile drops
+# the built React bundle into ./static and gunicorn serves it alongside /api, so
+# the browser talks to a single origin and needs no Vite proxy and no CORS.
+# static_url_path="" puts the bundle's files at the paths index.html asks for
+# ("/assets/...", "/favicon.svg") instead of under a "/static" prefix. In
+# development the directory is absent and Vite serves the frontend, so the
+# static routes simply 404.
+app = Flask(__name__, static_folder="static", static_url_path="")
 
 # A board is nine cells and an opponent name; the largest legal request is a
 # couple of hundred bytes. Without a cap Flask will read and parse a body of
@@ -90,6 +97,17 @@ def analyse() -> tuple[Response | dict[str, object], int]:
         suggested=suggested,
     )
     return response.model_dump(), 200
+
+
+@app.get("/")
+def index() -> Response:
+    """Serve the built frontend's entry page.
+
+    Returns:
+        The bundle's index.html, or HTTP 404 when no bundle has been built into
+        ./static -- the normal case in development.
+    """
+    return app.send_static_file("index.html")
 
 
 if __name__ == "__main__":
