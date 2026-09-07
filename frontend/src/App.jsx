@@ -14,7 +14,9 @@ const DEFAULT_SETTINGS = {
   computerMark: null,
   difficulty: 'fallible',
   teaching: 'hints',
-  critique: true,
+  // Off for the default hotseat: a human opponent is watching, and the warning
+  // gives away the position to both of them. Picking a computer turns it on.
+  critique: false,
 };
 
 const THEME_KEY = 'tictactoogood:theme';

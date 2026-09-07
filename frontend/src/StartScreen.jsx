@@ -3,26 +3,28 @@ import CritiqueSwitch from './CritiqueSwitch.jsx';
 import TeachingDial from './TeachingDial.jsx';
 
 // Each option sets both halves of the opponent: who the computer plays as, and
-// how well. The computer takes O so the player opens, which is the friendlier
+// how well, plus whether slips are called out — useless in hotseat, where the
+// warning tells the other player what you missed. The switch below still wins
+// if it is touched afterwards. The computer takes O so the player opens, which is the friendlier
 // default; it can be handed either mark, or switched off, from the game screen.
 const OPPONENTS = [
   {
     value: 'hotseat',
     label: 'Hotseat',
     hint: 'Two players, one screen.',
-    settings: { computerMark: null },
+    settings: { computerMark: null, critique: false },
   },
   {
     value: 'fallible',
     label: 'Computer — fallible',
     hint: 'Takes a win, never misses a block — after that it guesses.',
-    settings: { computerMark: 'O', difficulty: 'fallible' },
+    settings: { computerMark: 'O', difficulty: 'fallible', critique: true },
   },
   {
     value: 'perfect',
     label: 'Computer — perfect',
     hint: 'Cannot be beaten. A draw is the win.',
-    settings: { computerMark: 'O', difficulty: 'perfect' },
+    settings: { computerMark: 'O', difficulty: 'perfect', critique: true },
   },
 ];
 
